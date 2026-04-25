@@ -1,0 +1,2573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRE — Morning Check-In</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F5F4F0;
+    --white: #FFFFFF;
+    --ink: #1A1A1A;
+    --ink-light: #555555;
+    --ink-muted: #999999;
+    --border: #E0DFD8;
+    --border-light: #EDECE8;
+    --hot: #993C1D;
+    --hot-bg: #FAECE7;
+    --hot-border: #F0997B;
+    --warm: #854F0B;
+    --warm-bg: #FAEEDA;
+    --warm-border: #FAC775;
+    --green: #0F6E56;
+    --green-bg: #E1F5EE;
+    --green-border: #5DCAA5;
+    --blue: #185FA5;
+    --blue-bg: #E6F1FB;
+    --purple-bg: #EEEDFE;
+    --purple: #534AB7;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: var(--white);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0.85rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: baseline; gap: 14px; }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--ink); }
+  .topbar-label { font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+  .streak-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--green-bg); border: 0.5px solid var(--green-border);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 13px; font-weight: 500; color: var(--green);
+  }
+  .streak-num { font-family: 'DM Serif Display', serif; font-size: 17px; }
+  .today-label { font-size: 13px; color: var(--ink-muted); }
+
+  /* ── TABS ── */
+  .tabs {
+    background: var(--white);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 2rem;
+    display: flex; gap: 0;
+  }
+  .tab-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    color: var(--ink-muted);
+    background: none; border: none;
+    padding: 10px 16px 11px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+  /* ── VIEWS ── */
+  .view { display: none; flex: 1; }
+  .view.active { display: block; }
+
+  /* ── CHECK-IN VIEW ── */
+  .checkin-wrap {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+
+  /* Progress */
+  .progress-track {
+    display: flex; gap: 4px; margin-bottom: 2.5rem;
+  }
+  .progress-dot {
+    flex: 1; height: 3px; border-radius: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .progress-dot.done { background: var(--green); }
+  .progress-dot.active { background: var(--ink); }
+
+  /* Step card */
+  .step-card {
+    background: var(--white);
+    border: 0.5px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .step-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    color: var(--ink-muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+  .step-question {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px; line-height: 1.35;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .step-hint {
+    font-size: 13px; color: var(--ink-muted);
+    line-height: 1.6; margin-bottom: 1.5rem;
+  }
+
+  /* Voice input */
+  .voice-field {
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+    transition: border-color 0.2s;
+  }
+  .voice-field:focus-within { border-color: var(--ink); }
+  .voice-field.recording { border-color: #D85A30; }
+
+  textarea.answer-box {
+    width: 100%; min-height: 80px;
+    border: none; outline: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; line-height: 1.65;
+    color: var(--ink);
+    padding: 14px 16px 10px;
+    resize: vertical;
+    background: transparent;
+  }
+  textarea.answer-box::placeholder { color: var(--ink-muted); }
+
+  .voice-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    border-top: 0.5px solid var(--border-light);
+    background: var(--cream);
+  }
+  .voice-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: 0.5px solid var(--border);
+    border-radius: 20px; padding: 5px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500; color: var(--ink-light);
+    cursor: pointer; transition: all 0.15s;
+    user-select: none;
+  }
+  .voice-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .voice-btn.recording {
+    background: #D85A30; border-color: #D85A30;
+    color: white; animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.75; }
+  }
+  .mic-icon { font-size: 14px; }
+  .voice-status { font-size: 12px; color: var(--ink-muted); flex: 1; }
+
+  /* Input variants */
+  .short-input {
+    width: 100%; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 11px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; color: var(--ink);
+    background: var(--white); outline: none;
+    transition: border-color 0.2s; margin-bottom: 1rem;
+  }
+  .short-input:focus { border-color: var(--ink); }
+
+  .num-input {
+    width: 90px; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 11px 14px;
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px; color: var(--ink);
+    text-align: center;
+    background: var(--white); outline: none;
+    transition: border-color 0.2s;
+  }
+  .num-input:focus { border-color: var(--ink); }
+
+  /* Checklist */
+  .habit-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1.25rem; }
+  .habit-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--white);
+  }
+  .habit-item:hover { border-color: var(--ink-light); }
+  .habit-item.checked { background: var(--green-bg); border-color: var(--green-border); }
+  .habit-check {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 11px; color: transparent;
+    transition: all 0.15s;
+  }
+  .habit-item.checked .habit-check {
+    background: var(--green); border-color: var(--green); color: white;
+  }
+  .habit-label { font-size: 14px; color: var(--ink); flex: 1; }
+  .habit-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--ink-muted);
+  }
+
+  /* Contact adder */
+  .contact-adder { margin-bottom: 1rem; }
+  .contact-add-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .contact-add-row input { flex: 1; }
+  .add-btn {
+    background: var(--ink); color: white;
+    border: none; border-radius: 10px;
+    padding: 11px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .add-btn:hover { opacity: 0.8; }
+  .contact-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .contact-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--blue-bg); border: 0.5px solid #85B7EB;
+    border-radius: 20px; padding: 4px 10px 4px 12px;
+    font-size: 13px; color: var(--blue);
+  }
+  .chip-action { font-size: 11px; color: var(--ink-muted); }
+  .chip-remove {
+    background: none; border: none; cursor: pointer;
+    font-size: 14px; color: var(--ink-muted); line-height: 1;
+    padding: 0; transition: color 0.15s;
+  }
+  .chip-remove:hover { color: var(--hot); }
+
+  /* Tier pills */
+  .tier-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .tier-pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    padding: 3px 10px; border-radius: 20px;
+    cursor: pointer; border: 0.5px solid transparent;
+    transition: all 0.15s;
+  }
+  .tier-pill.hot { background: var(--hot-bg); color: var(--hot); border-color: var(--hot-border); }
+  .tier-pill.warm { background: var(--warm-bg); color: var(--warm); border-color: var(--warm-border); }
+  .tier-pill.nurture { background: var(--cream); color: var(--ink-muted); border-color: var(--border); }
+  .tier-pill.selected { box-shadow: 0 0 0 2px currentColor; }
+
+  /* Nav buttons */
+  .step-nav { display: flex; gap: 10px; margin-top: 1.5rem; }
+  .btn-back {
+    background: none; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 11px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; color: var(--ink-light);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-back:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-next {
+    flex: 1; background: var(--ink); color: white;
+    border: none; border-radius: 10px; padding: 12px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-next:hover { opacity: 0.85; }
+  .btn-next.green-btn { background: var(--green); }
+
+  /* Done state */
+  .done-card {
+    background: var(--white); border: 0.5px solid var(--green-border);
+    border-radius: 16px; padding: 2rem;
+    box-shadow: var(--shadow);
+    text-align: center; margin-bottom: 1.25rem;
+  }
+  .done-icon { font-size: 40px; margin-bottom: 12px; }
+  .done-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px; color: var(--green); margin-bottom: 6px;
+  }
+  .done-sub { font-size: 14px; color: var(--ink-muted); line-height: 1.6; }
+  .done-actions { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: center; }
+  .done-actions button {
+    background: none; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 9px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; color: var(--ink);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .done-actions button:hover { border-color: var(--ink); }
+  .done-actions button.primary {
+    background: var(--ink); color: white; border-color: var(--ink);
+  }
+
+  .summary-card {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.5rem;
+    margin-bottom: 10px;
+  }
+  .summary-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500; color: var(--ink-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .summary-text { font-size: 14px; color: var(--ink); line-height: 1.65; white-space: pre-wrap; }
+  .summary-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* ── DASHBOARD VIEW ── */
+  .dash-wrap {
+    max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem;
+  }
+  .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .metric-card {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.25rem;
+  }
+  .metric-label { font-size: 11px; color: var(--ink-muted); margin-bottom: 4px; }
+  .metric-val {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px; color: var(--ink);
+  }
+  .metric-sub { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+
+  .dash-card {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.5rem;
+    margin-bottom: 12px;
+  }
+  .dash-card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500; color: var(--ink-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .streak-dots { display: flex; gap: 5px; flex-wrap: wrap; }
+  .s-dot {
+    width: 20px; height: 20px; border-radius: 4px;
+    background: var(--border); position: relative;
+    transition: background 0.2s;
+  }
+  .s-dot.done { background: var(--green); }
+  .s-dot.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .s-dot[title]:hover::after {
+    content: attr(title); position: absolute; bottom: 26px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink); color: white;
+    font-size: 11px; padding: 3px 8px; border-radius: 4px; white-space: nowrap;
+    z-index: 10;
+  }
+
+  .log-row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 10px 0; border-bottom: 0.5px solid var(--border-light);
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-date { font-size: 13px; font-weight: 500; color: var(--ink); min-width: 100px; }
+  .log-meta { font-size: 13px; color: var(--ink-muted); flex: 1; }
+  .log-top { font-size: 13px; color: var(--ink); font-style: italic; }
+
+  /* Bar chart */
+  .bar-chart-wrap { display: flex; align-items: flex-end; gap: 0; margin-top: 8px; }
+  .bar-y-axis { display: flex; flex-direction: column; justify-content: space-between; height: 100px; padding-bottom: 18px; margin-right: 6px; }
+  .bar-y-label { font-size: 10px; color: var(--ink-muted); text-align: right; line-height: 1; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 100px; flex: 1; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .bar-fill {
+    width: 100%; background: var(--green); border-radius: 3px 3px 0 0;
+    min-height: 2px; transition: height 0.4s ease;
+  }
+  .bar-fill.zero { background: var(--border); min-height: 4px; }
+  .bar-lbl { font-size: 10px; color: var(--ink-muted); }
+
+  /* Photo upload for Hot/Warm steps */
+  .photo-upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 12px; padding: 1rem;
+    margin-top: 12px; text-align: center;
+    cursor: pointer; transition: border-color 0.2s;
+    background: var(--cream);
+  }
+  .photo-upload-zone:hover { border-color: var(--ink-muted); }
+  .photo-upload-zone input[type=file] { display: none; }
+  .photo-upload-label { font-size: 13px; color: var(--ink-muted); }
+  .photo-preview { width: 100%; border-radius: 10px; margin-top: 8px; display: none; }
+  .photo-clear-btn {
+    margin-top: 6px; font-size: 12px; color: var(--hot);
+    background: none; border: none; cursor: pointer; display: none;
+  }
+
+  /* ── CONTACTS VIEW ── */
+  .contacts-wrap {
+    max-width: 860px; margin: 0 auto; padding: 2rem 1rem 4rem;
+  }
+
+  /* Sphere upload bar */
+  .sphere-upload-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--cream); border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .sphere-upload-bar input[type=file] { display: none; }
+  .sphere-upload-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    background: var(--ink); color: white;
+    border: none; border-radius: 8px; padding: 7px 14px;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+  }
+  .sphere-upload-btn:hover { opacity: 0.8; }
+  .sphere-status { font-size: 12px; color: var(--ink-muted); flex: 1; }
+  .sphere-reset-note { font-size: 11px; color: var(--ink-muted); font-style: italic; }
+
+  /* Contact coverage stats */
+  .coverage-bar-wrap { margin-bottom: 14px; }
+  .coverage-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .coverage-label { font-size: 12px; color: var(--ink-muted); min-width: 120px; }
+  .coverage-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .coverage-fill { height: 6px; background: var(--green); border-radius: 3px; transition: width 0.4s; }
+  .coverage-num { font-size: 12px; font-weight: 500; color: var(--ink); min-width: 50px; text-align: right; }
+
+  /* Contacts table */
+  .contacts-table-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .ct-header-name { font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em; flex: 1; min-width: 130px; }
+  .ct-header-bar { width: 60px; flex-shrink: 0; }
+  .ct-header-count { font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em; min-width: 28px; text-align: right; flex-shrink: 0; }
+  .ct-header-last { font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em; min-width: 90px; text-align: right; flex-shrink: 0; }
+  .ct-header-method { font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em; min-width: 95px; text-align: center; flex-shrink: 0; }
+  .ct-header-nl, .ct-header-pc {
+    font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em;
+    min-width: 72px; text-align: center; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .select-all-cb { width: 15px; height: 15px; cursor: pointer; accent-color: var(--green); }
+  .select-all-label { font-size: 10px; color: var(--ink-muted); cursor: pointer; }
+
+  .contact-table-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 0.5px solid var(--border-light);
+  }
+  .contact-table-row:last-child { border-bottom: none; }
+  .contact-table-row.untouched { background: #FFFBF5; }
+  .ct-name { font-size: 13px; font-weight: 500; color: var(--ink); flex: 1; min-width: 130px; }
+  .ct-name.sphere-only { color: var(--ink-muted); font-weight: 400; }
+  .ct-untouched-badge {
+    font-size: 10px; color: var(--warm); background: var(--warm-bg);
+    border: 0.5px solid var(--warm-border);
+    border-radius: 6px; padding: 1px 6px; margin-left: 4px;
+    white-space: nowrap;
+  }
+  .ct-count {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px; color: var(--ink); min-width: 28px; text-align: right; flex-shrink: 0;
+  }
+  .ct-count.zero { color: var(--border); }
+  .ct-last { font-size: 11px; color: var(--ink-muted); min-width: 90px; text-align: right; flex-shrink: 0; }
+  .ct-bar { width: 60px; height: 4px; background: var(--border); border-radius: 2px; flex-shrink: 0; }
+  .ct-bar-fill { height: 4px; background: var(--green); border-radius: 2px; }
+
+  .ct-method { min-width: 95px; text-align: center; flex-shrink: 0; }
+  .touch-method-select {
+    font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink);
+    border: 0.5px solid var(--border); border-radius: 8px; padding: 4px 5px;
+    background: var(--white); cursor: pointer; outline: none; width: 88px;
+    transition: border-color 0.15s;
+  }
+  .touch-method-select:focus { border-color: var(--ink); }
+  .touch-method-select.set-call { background: var(--blue-bg); border-color: #85B7EB; color: var(--blue); }
+  .touch-method-select.set-text { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
+  .touch-method-select.set-email { background: var(--purple-bg); border-color: #AFA9EC; color: var(--purple); }
+
+  .ct-nl, .ct-pc { min-width: 72px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+  .monthly-cb { width: 16px; height: 16px; cursor: pointer; accent-color: var(--green); }
+  .month-reset-note { font-size: 11px; color: var(--ink-muted); font-style: italic; margin-top: 8px; text-align: right; }
+
+  /* ── HANDOFF VIEW ── */
+  .handoff-wrap {
+    max-width: 620px; margin: 0 auto; padding: 2rem 1rem 4rem;
+  }
+  .handoff-doc {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.25rem;
+  }
+  .handoff-header {
+    background: var(--ink); color: white;
+    padding: 1.25rem 1.5rem;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .handoff-title { font-family: 'DM Serif Display', serif; font-size: 18px; }
+  .handoff-date-lbl { font-size: 12px; opacity: 0.6; }
+  .handoff-section {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .handoff-section:last-child { border-bottom: none; }
+  .hs-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500; color: var(--ink-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .hs-content { font-size: 14px; color: var(--ink); line-height: 1.7; white-space: pre-wrap; }
+  .handoff-part2 {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 16px; padding: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .p2-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px; color: var(--ink);
+    margin-bottom: 1.25rem;
+  }
+  .p2-field { margin-bottom: 1rem; }
+  .p2-field label {
+    display: block; font-size: 12px; font-weight: 500;
+    color: var(--ink-muted); margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-family: 'DM Mono', monospace;
+  }
+  .p2-field textarea {
+    width: 100%; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; color: var(--ink);
+    background: var(--cream); outline: none; resize: vertical;
+    min-height: 70px; transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+  .p2-field textarea:focus { border-color: var(--ink); background: var(--white); }
+  .copy-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 9px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; color: var(--ink);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--ink); }
+  .save-p2-btn {
+    flex: 1; background: var(--green); color: white;
+    border: none; border-radius: 10px; padding: 11px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .save-p2-btn:hover { opacity: 0.85; }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--ink-muted); font-size: 14px; }
+  .empty-state .e-icon { font-size: 32px; margin-bottom: 12px; }
+
+  /* ── HOT & WARM TAB ── */
+  .hw-wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 5rem; }
+  .hw-section { margin-bottom: 1.5rem; }
+  .hw-section-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .hw-badge {
+    font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 20px;
+    font-family: 'DM Mono', monospace; letter-spacing: 0.04em;
+  }
+  .hw-badge.hot { background: var(--hot-bg); color: var(--hot); border: 0.5px solid var(--hot-border); }
+  .hw-badge.warm { background: var(--warm-bg); color: var(--warm); border: 0.5px solid var(--warm-border); }
+  .hw-count { font-size: 13px; color: var(--ink-muted); }
+
+  .hw-add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .hw-add-row input { flex: 1; }
+  .hw-add-btn {
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 10px 16px; border: none; border-radius: 10px; cursor: pointer;
+    white-space: nowrap; transition: opacity 0.15s; color: white;
+  }
+  .hw-add-btn.hot { background: var(--hot); }
+  .hw-add-btn.warm { background: var(--warm); }
+  .hw-add-btn:hover { opacity: 0.85; }
+
+  .hw-card {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 12px; overflow: hidden; margin-bottom: 8px;
+  }
+  .hw-card.hot-card { border-left: 3px solid var(--hot); }
+  .hw-card.warm-card { border-left: 3px solid var(--warm-border); }
+  .hw-card-main {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  }
+  .hw-touched-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1.5px solid var(--border); flex-shrink: 0;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .hw-touched-dot.done { background: var(--green); border-color: var(--green); }
+  .hw-name { font-size: 14px; font-weight: 500; color: var(--ink); flex: 1; }
+  .hw-next { font-size: 12px; color: var(--ink-muted); font-style: italic; flex: 2; }
+  .hw-remove {
+    background: none; border: none; cursor: pointer;
+    font-size: 16px; color: var(--border); padding: 0 4px;
+    transition: color 0.15s; line-height: 1;
+  }
+  .hw-remove:hover { color: var(--hot); }
+  .hw-next-input {
+    width: 100%; border: none; border-top: 0.5px solid var(--border-light);
+    padding: 8px 14px 8px 34px;
+    font-family: 'DM Sans', sans-serif; font-size: 12px;
+    color: var(--ink-muted); background: var(--cream); outline: none;
+  }
+  .hw-next-input:focus { color: var(--ink); background: var(--white); }
+  .hw-touched-today { font-size: 11px; color: var(--green); font-weight: 500; padding: 0 4px; }
+
+  /* Status pill in contacts */
+  .ct-status { min-width: 60px; flex-shrink: 0; display: flex; justify-content: center; }
+  .ct-header-status { font-size: 11px; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em; min-width: 60px; text-align: center; flex-shrink: 0; }
+  .status-pill {
+    font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px;
+    font-family: 'DM Mono', monospace; cursor: pointer;
+    border: 0.5px solid transparent; transition: all 0.15s; white-space: nowrap;
+  }
+  .status-pill.hot { background: var(--hot-bg); color: var(--hot); border-color: var(--hot-border); }
+  .status-pill.warm { background: var(--warm-bg); color: var(--warm); border-color: var(--warm-border); }
+  .status-pill.none { background: var(--cream); color: var(--ink-muted); border-color: var(--border); font-size: 11px; }
+
+  /* ── DEBRIEF VIEW ── */
+  .debrief-wrap {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+  .debrief-done-card {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 16px; padding: 2rem;
+    box-shadow: var(--shadow);
+    text-align: center; margin-bottom: 1.25rem;
+  }
+  .debrief-done-icon { font-size: 36px; margin-bottom: 10px; }
+  .debrief-done-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px; color: var(--ink); margin-bottom: 4px;
+  }
+  .debrief-done-sub { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
+  .debrief-done-actions { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: center; flex-wrap: wrap; }
+  .debrief-done-actions button {
+    background: none; border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 9px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; color: var(--ink);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .debrief-done-actions button:hover { border-color: var(--ink); }
+  .debrief-done-actions button.primary { background: var(--ink); color: white; border-color: var(--ink); }
+
+  /* ── WEEKLY / ANNUAL PLACEHOLDER ── */
+  .placeholder-wrap {
+    max-width: 600px; margin: 0 auto;
+    padding: 4rem 1rem; text-align: center;
+  }
+  .placeholder-icon { font-size: 48px; margin-bottom: 16px; }
+  .placeholder-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px; color: var(--ink); margin-bottom: 8px;
+  }
+  .placeholder-sub { font-size: 14px; color: var(--ink-muted); line-height: 1.7; max-width: 380px; margin: 0 auto; }
+  .placeholder-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    background: var(--cream); border: 0.5px solid var(--border);
+    color: var(--ink-muted); padding: 4px 12px; border-radius: 20px;
+    margin-top: 1.5rem; letter-spacing: 0.06em;
+  }
+
+  /* ── HANDOFF V2 — comparison view ── */
+  .handoff-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+  .handoff-col-header {
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 0.6rem 1rem; border-radius: 8px 8px 0 0;
+    margin-bottom: -1px;
+  }
+  .handoff-col-morning { background: var(--cream); color: var(--ink-muted); border: 0.5px solid var(--border); border-bottom: none; }
+  .handoff-col-evening { background: var(--green-bg); color: var(--green); border: 0.5px solid var(--green-border); border-bottom: none; }
+  .handoff-col-doc {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 0 12px 12px 12px; overflow: hidden;
+  }
+  .handoff-col-doc.evening { border-color: var(--green-border); border-radius: 12px 0 12px 12px; }
+  .hc-section { padding: 0.85rem 1rem; border-bottom: 0.5px solid var(--border-light); }
+  .hc-section:last-child { border-bottom: none; }
+  .hc-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+  .hc-val { font-size: 13px; color: var(--ink); line-height: 1.6; white-space: pre-wrap; }
+  .hc-val.empty { color: var(--ink-muted); font-style: italic; }
+  .handoff-email-block {
+    background: var(--white); border: 0.5px solid var(--border);
+    border-radius: 16px; padding: 1.5rem;
+    box-shadow: var(--shadow); margin-bottom: 1.25rem;
+  }
+  .handoff-email-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px; color: var(--ink); margin-bottom: 1rem;
+  }
+  .handoff-email-to {
+    font-size: 12px; color: var(--ink-muted);
+    background: var(--cream); border: 0.5px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; margin-bottom: 1rem;
+    font-family: 'DM Mono', monospace;
+  }
+  .handoff-email-body {
+    font-size: 13px; color: var(--ink); line-height: 1.75;
+    background: var(--cream); border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.25rem;
+    white-space: pre-wrap; min-height: 80px; margin-bottom: 1rem;
+  }
+
+  /* Yes/No buttons for debrief */
+  .yn-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500;
+    padding: 10px 24px; border-radius: 10px;
+    border: 0.5px solid var(--border);
+    background: var(--white); color: var(--ink-light);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .yn-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .yn-btn.selected { background: var(--ink); color: white; border-color: var(--ink); }
+
+  /* ── MOBILE RESPONSIVE ── */
+  @media (max-width: 640px) {
+    /* Topbar */
+    .topbar { padding: 0.7rem 1rem; }
+    .topbar-label { display: none; }
+    .today-label { font-size: 11px; }
+    .streak-chip { padding: 3px 10px; font-size: 12px; }
+    .streak-num { font-size: 15px; }
+
+    /* Tabs — scrollable, no wrap */
+    .tabs { padding: 0 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+    .tab-btn { padding: 10px 12px 11px; font-size: 12px; white-space: nowrap; }
+
+    /* Check-in */
+    .checkin-wrap { padding: 1.25rem 0.75rem 5rem; }
+    .step-card { padding: 1.25rem; border-radius: 14px; }
+    .step-question { font-size: 19px; }
+    textarea.answer-box { font-size: 16px; min-height: 90px; } /* 16px prevents iOS zoom */
+    .short-input { font-size: 16px; } /* prevent iOS zoom */
+    .num-input { font-size: 18px; }
+    .voice-btn { padding: 8px 14px; font-size: 13px; } /* bigger tap target */
+    .btn-next, .btn-back { padding: 14px 20px; font-size: 15px; } /* thumb friendly */
+    .habit-item { padding: 12px 14px; }
+    .habit-label { font-size: 13px; }
+    .contact-add-row { flex-wrap: wrap; }
+    .contact-add-row input { min-width: 100%; }
+    .add-btn { width: 100%; margin-top: 4px; }
+
+    /* Done state */
+    .done-actions { flex-wrap: wrap; }
+    .done-actions button { flex: 1; min-width: 120px; padding: 12px 10px; font-size: 13px; }
+
+    /* Dashboard */
+    .dash-wrap { padding: 1rem 0.75rem 5rem; }
+    .metrics-grid { grid-template-columns: repeat(2,1fr); gap: 8px; }
+    .metric-val { font-size: 24px; }
+    .dash-card { padding: 1rem 1.1rem; }
+    .s-dot { width: 16px; height: 16px; }
+    .bar-lbl { font-size: 9px; }
+    .log-row { flex-wrap: wrap; gap: 4px; }
+    .log-date { min-width: unset; }
+
+    /* Hot/Warm tab */
+    .hw-wrap { padding: 1rem 0.75rem 5rem; }
+    .hw-add-row { flex-wrap: wrap; }
+    .hw-add-row input { min-width: 100%; }
+    .hw-add-btn { width: 100%; }
+    .hw-card-main { gap: 8px; }
+    .hw-next { display: none; } /* next step shows in expandable input below */
+
+    /* Contacts — card layout on mobile */
+    .contacts-wrap { padding: 1rem 0.75rem 5rem; }
+    .contacts-table-header { display: none; } /* hidden on mobile, labels inline */
+    .contact-table-row {
+      flex-wrap: wrap; gap: 6px; padding: 10px 0;
+      border-bottom: 0.5px solid var(--border-light);
+    }
+    .ct-name { min-width: 100%; font-size: 14px; }
+    .ct-bar { display: none; }
+    .ct-count { min-width: unset; font-size: 14px; }
+    .ct-count::before { content: 'Touches: '; font-size: 11px; font-family: 'DM Sans',sans-serif; color: var(--ink-muted); font-weight: 400; }
+    .ct-last { min-width: unset; text-align: left; }
+    .ct-last::before { content: 'Last: '; font-size: 11px; color: var(--ink-muted); }
+    .ct-method { min-width: unset; }
+    .touch-method-select { width: 100px; }
+    .ct-nl, .ct-pc { min-width: unset; gap: 4px; }
+    .ct-nl::before { content: 'NL '; font-size: 11px; color: var(--ink-muted); }
+    .ct-pc::before { content: 'PC '; font-size: 11px; color: var(--ink-muted); }
+    .ct-status { min-width: unset; }
+    .sphere-upload-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .coverage-label { min-width: 90px; }
+
+    /* Handoff */
+    .handoff-wrap { padding: 1rem 0.75rem 5rem; }
+    .handoff-compare { grid-template-columns: 1fr; }
+    .handoff-col-doc { border-radius: 0 0 12px 12px; }
+    .handoff-col-doc.evening { border-radius: 0 0 12px 12px; }
+    .handoff-header { flex-direction: column; gap: 2px; }
+    .p2-field textarea { font-size: 16px; } /* prevent iOS zoom */
+    .copy-btn, .save-p2-btn { padding: 13px 12px; font-size: 14px; }
+    /* Debrief */
+    .debrief-wrap { padding: 1.25rem 0.75rem 5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">DRE</span>
+    <span class="topbar-label">Morning Check-In</span>
+  </div>
+  <div class="topbar-right">
+    <span class="today-label" id="today-label"></span>
+    <div class="streak-chip">🔥 <span class="streak-num" id="streak-display">0</span> day streak</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('hotWarm')">Hot & Warm</button>
+  <button class="tab-btn" onclick="switchTab('contacts')">Contacts</button>
+  <button class="tab-btn active" onclick="switchTab('checkin')">Check-In</button>
+  <button class="tab-btn" onclick="switchTab('debrief')">Debrief</button>
+  <button class="tab-btn" onclick="switchTab('handoff')">Clem Handoff</button>
+  <button class="tab-btn" onclick="switchTab('weekly')">Weekly</button>
+  <button class="tab-btn" onclick="switchTab('annual')">Annual</button>
+</div>
+
+<!-- ═══════════ HOT & WARM VIEW ═══════════ -->
+<div id="view-hotWarm" class="view">
+  <div class="hw-wrap">
+
+    <!-- HOT SECTION -->
+    <div class="hw-section">
+      <div class="hw-section-header">
+        <span class="hw-badge hot">🔴 Hot</span>
+        <span class="hw-count" id="hot-count">0 contacts</span>
+      </div>
+      <div class="hw-add-row">
+        <input class="short-input" id="new-hot-name" placeholder="Name" style="margin-bottom:0" onkeydown="if(event.key==='Enter')addHWContact('hot')">
+        <input class="short-input" id="new-hot-next" placeholder="Next step (call, send listing...)" style="margin-bottom:0" onkeydown="if(event.key==='Enter')addHWContact('hot')">
+        <button class="hw-add-btn hot" onclick="addHWContact('hot')">+ Add</button>
+      </div>
+      <div id="hot-list"></div>
+    </div>
+
+    <!-- WARM SECTION -->
+    <div class="hw-section">
+      <div class="hw-section-header">
+        <span class="hw-badge warm">🟡 Warm</span>
+        <span class="hw-count" id="warm-count">0 contacts</span>
+      </div>
+      <div class="hw-add-row">
+        <input class="short-input" id="new-warm-name" placeholder="Name" style="margin-bottom:0" onkeydown="if(event.key==='Enter')addHWContact('warm')">
+        <input class="short-input" id="new-warm-next" placeholder="Signal / next step" style="margin-bottom:0" onkeydown="if(event.key==='Enter')addHWContact('warm')">
+        <button class="hw-add-btn warm" onclick="addHWContact('warm')">+ Add</button>
+      </div>
+      <div id="warm-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ CHECK-IN VIEW ═══════════ -->
+<div id="view-checkin" class="view active">
+  <div class="checkin-wrap">
+
+    <!-- Done state -->
+    <div id="done-state" style="display:none">
+      <div class="done-card">
+        <div class="done-icon">✅</div>
+        <div class="done-title">Check-in complete</div>
+        <div class="done-sub" id="done-summary"></div>
+        <div class="done-actions">
+          <button onclick="switchTab('handoff')">View Clem handoff</button>
+          <button onclick="switchTab('dashboard')">Dashboard</button>
+          <button class="primary" onclick="editToday()">Edit today</button>
+        </div>
+      </div>
+      <div id="done-summaries"></div>
+    </div>
+
+    <!-- Check-in form -->
+    <div id="checkin-form">
+      <div class="progress-track" id="progress-track"></div>
+      <div id="step-container"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ DASHBOARD VIEW ═══════════ -->
+<div id="view-dashboard" class="view">
+  <div class="dash-wrap">
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Total check-ins</div><div class="metric-val" id="m-total">0</div><div class="metric-sub">all time</div></div>
+      <div class="metric-card"><div class="metric-label">Current streak</div><div class="metric-val" id="m-streak">0</div><div class="metric-sub">days</div></div>
+      <div class="metric-card"><div class="metric-label">Contacts this month</div><div class="metric-val" id="m-contacts">0</div><div class="metric-sub">logged touches</div></div>
+      <div class="metric-card"><div class="metric-label">Avg habits/day</div><div class="metric-val" id="m-habits">—</div><div class="metric-sub">of 8</div></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-label">30-day streak</div>
+      <div class="streak-dots" id="streak-dots"></div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-label">Contacts touched — last 14 days</div>
+      <div class="bar-chart-wrap">
+        <div class="bar-y-axis" id="bar-y-axis">
+          <div class="bar-y-label" id="y-top">—</div>
+          <div class="bar-y-label" id="y-mid">—</div>
+          <div class="bar-y-label">0</div>
+        </div>
+        <div class="bar-chart" id="bar-chart"></div>
+      </div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-label">Recent check-ins</div>
+      <div id="recent-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CONTACTS VIEW ═══════════ -->
+<div id="view-contacts" class="view">
+  <div class="contacts-wrap">
+
+    <!-- Sphere upload bar -->
+    <div class="sphere-upload-bar">
+      <input type="file" id="sphere-file-input" accept=".csv" onchange="loadSphereCSV(this)">
+      <button class="sphere-upload-btn" onclick="document.getElementById('sphere-file-input').click()">📂 Upload Sphere CSV</button>
+      <span class="sphere-status" id="sphere-status">No sphere list loaded — upload your CSV to enable coverage tracking</span>
+      <span class="sphere-reset-note" id="sphere-month-note"></span>
+    </div>
+
+    <!-- Coverage summary -->
+    <div class="dash-card" id="coverage-card" style="display:none; margin-bottom:12px;">
+      <div class="dash-card-label">Monthly Coverage</div>
+      <div class="coverage-bar-wrap" id="coverage-bars"></div>
+    </div>
+
+    <!-- Full contacts table -->
+    <div class="dash-card">
+      <div class="dash-card-label">All contacts — sphere + touch log</div>
+      <div class="contacts-table-header">
+        <div class="ct-header-name">Contact</div>
+        <div class="ct-header-bar"></div>
+        <div class="ct-header-status">Status</div>
+        <div class="ct-header-count">Touches</div>
+        <div class="ct-header-last">Last Touch</div>
+        <div class="ct-header-method">Method</div>
+        <div class="ct-header-nl">
+          Newsletter
+          <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+            <input type="checkbox" class="select-all-cb" id="sa-nl" onchange="selectAllMonthly('nl',this.checked)">
+            <span class="select-all-label">all</span>
+          </label>
+        </div>
+        <div class="ct-header-pc">
+          Postcard
+          <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+            <input type="checkbox" class="select-all-cb" id="sa-pc" onchange="selectAllMonthly('pc',this.checked)">
+            <span class="select-all-label">all</span>
+          </label>
+        </div>
+      </div>
+      <div id="contact-list-full"></div>
+      <div class="month-reset-note" id="month-reset-note"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ HANDOFF VIEW ═══════════ -->
+<div id="view-handoff" class="view">
+  <div class="handoff-wrap">
+
+    <!-- Comparison block: rendered by renderHandoff() -->
+    <div id="handoff-compare-block"></div>
+
+    <!-- Draft email to Clem -->
+    <div class="handoff-email-block" id="handoff-email-block" style="display:none">
+      <div class="handoff-email-label">Draft email to Clem</div>
+      <div class="handoff-email-to" id="handoff-email-to">To: clmphilippe@gmail.com</div>
+      <div class="handoff-email-body" id="handoff-email-body"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="copy-btn" onclick="copyHandoff()">📋 Copy email</button>
+      </div>
+    </div>
+
+    <!-- Legacy placeholder for empty state -->
+    <div id="handoff-empty" style="display:none">
+      <div class="handoff-doc"><div class="empty-state"><div class="e-icon">📋</div>Complete your morning check-in to generate today's handoff.</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ DEBRIEF VIEW ═══════════ -->
+<div id="view-debrief" class="view">
+  <div class="debrief-wrap">
+
+    <!-- Done state -->
+    <div id="debrief-done-state" style="display:none">
+      <div class="debrief-done-card">
+        <div class="debrief-done-icon">🌙</div>
+        <div class="debrief-done-title">Debrief logged</div>
+        <div class="debrief-done-sub" id="debrief-done-sub">Day closed out.</div>
+        <div class="debrief-done-actions">
+          <button onclick="switchTab('handoff')">View Clem handoff</button>
+          <button onclick="editDebrief()">Edit debrief</button>
+          <button class="primary" onclick="switchTab('dashboard')">Dashboard</button>
+        </div>
+      </div>
+      <div id="debrief-done-summaries"></div>
+    </div>
+
+    <!-- Debrief form -->
+    <div id="debrief-form">
+      <div class="progress-track" id="debrief-progress-track"></div>
+      <div id="debrief-step-container"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ WEEKLY VIEW ═══════════ -->
+<div id="view-weekly" class="view">
+  <div class="placeholder-wrap">
+    <div class="placeholder-icon">📊</div>
+    <div class="placeholder-title">Weekly Review</div>
+    <div class="placeholder-sub">Weekly tracking — total contacts touched, CMAs done, active listings & buyers, Ninja habits (50 live interactions, real estate reviews), and carries forward. Full build coming.</div>
+    <div class="placeholder-badge">Coming Soon</div>
+  </div>
+</div>
+
+<!-- ═══════════ ANNUAL VIEW ═══════════ -->
+<div id="view-annual" class="view">
+  <div class="placeholder-wrap">
+    <div class="placeholder-icon">🎯</div>
+    <div class="placeholder-title">Annual Goals</div>
+    <div class="placeholder-sub">Year-long targets — sphere size, units, sales volume, investment fund, SOP completion, CE credits. Goal thermometers that feed from this tab into the dashboard. Build in November.</div>
+    <div class="placeholder-badge">November Build</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// DATA LAYER
+// ══════════════════════════════════════
+const STORE = 'dre_v2';
+let db = { days: {}, contacts: [] };
+
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function fmtDate(k) {
+  return new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (raw) db = JSON.parse(raw);
+  } catch(e) {}
+}
+function saveDB() {
+  try { localStorage.setItem(STORE, JSON.stringify(db)); } catch(e) {}
+}
+
+function getStreak() {
+  let s = 0, d = new Date();
+  for (let i = 0; i < 365; i++) {
+    const k = d.toISOString().slice(0,10);
+    if (db.days[k]?.done) s++;
+    else if (i > 0) break;
+    d.setDate(d.getDate()-1);
+  }
+  return s;
+}
+
+// ══════════════════════════════════════
+// TABS
+// ══════════════════════════════════════
+function switchTab(t) {
+  const tabs = ['dashboard','hotWarm','contacts','checkin','debrief','handoff','weekly','annual'];
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', tabs[i] === t);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  if (t === 'dashboard') renderDashboard();
+  if (t === 'contacts') renderContacts();
+  if (t === 'handoff') renderHandoff();
+  if (t === 'hotWarm') renderHotWarm();
+  if (t === 'debrief') initDebrief();
+}
+
+// ══════════════════════════════════════
+// STEPS DEFINITION
+// ══════════════════════════════════════
+const STEPS = [
+  {
+    id: 'mindset',
+    eyebrow: 'Ninja Habit #1 · Mindset',
+    question: 'What are you grateful for today?',
+    hint: 'Start from abundance. Say it out loud or dictate below. If someone comes to mind, note them — they\'re your personal note candidate.',
+    fields: [
+      { type: 'voice', id: 'gratitude', placeholder: 'e.g. Grateful for a clear morning, great call with the Garcias yesterday...' },
+      { type: 'short', id: 'note-candidate', label: 'Who came to mind? (personal note candidate)', placeholder: 'Name — optional' }
+    ]
+  },
+  {
+    id: 'priorities',
+    eyebrow: 'Priority 1 & 2 · Appointments & Contracts',
+    question: 'Any appointments, showings, or contract deadlines today?',
+    hint: 'Priority 1 wins — if you made a commitment, that always goes first. Priority 2 is anything with a legal date attached.',
+    fields: [
+      { type: 'voice', id: 'appts', placeholder: 'e.g. 10am showing with the Garcias, 2pm listing appointment...' },
+      { type: 'voice', id: 'contracts', label: 'Contract deadlines or documents due?', placeholder: 'e.g. Inspection response due for Johnson deal by 5pm...' }
+    ]
+  },
+  {
+    id: 'hot',
+    eyebrow: 'Priority 3 · Ninja Habit #4 — Hot List',
+    question: 'Who\'s on your Hot List? What\'s each person\'s next step?',
+    hint: 'The daily question: who can you write a contract with this week? Actively searching = send a relevant listing. Timeline set = meaningful touch this week.',
+    fields: [
+      { type: 'voice', id: 'hot-focus', placeholder: 'e.g. Garcias — actively searching, sending 3 listings today. Martinez — timeline March, call this week...' },
+      { type: 'photo', id: 'hot-photo', label: 'Upload your Hot List sheet (optional)' }
+    ]
+  },
+  {
+    id: 'warm',
+    eyebrow: 'Priority 3 · Ninja Habit #5 — Warm List',
+    question: 'Any Warm contacts need a touch today? New signals spotted?',
+    hint: 'They may not know they\'re in your pipeline — keep it that way. Stay relevant, stay present. Scan for anyone to move up.',
+    fields: [
+      { type: 'voice', id: 'warm-focus', placeholder: 'e.g. Kevin got promoted — comment on LinkedIn. Sarah mentioned rent going up — send market update...' },
+      { type: 'photo', id: 'warm-photo', label: 'Upload your Warm List sheet (optional)' },
+      { type: 'short', id: 'warm-to-hot', label: 'Anyone to move Warm → Hot?', placeholder: 'Name(s) — optional' }
+    ]
+  },
+  {
+    id: 'habits',
+    eyebrow: 'Priority 3 · Ninja Nine — Daily Habits',
+    question: 'What are you completing today?',
+    hint: 'Check what you\'re committing to. Treat these like scheduled appointments — most important, most likely to be skipped.',
+    fields: [
+      { type: 'habits' },
+      { type: 'number', id: 'pomos', label: 'How many Pomodoros available today?', placeholder: '4' }
+    ]
+  },
+  {
+    id: 'contacts',
+    eyebrow: 'Daily Touches',
+    question: 'Who are you reaching out to today?',
+    hint: 'Hot contacts get daily or weekly touches. Warm contacts get a relevant, present touch. Add each person and what you\'re doing.',
+    fields: [
+      { type: 'contacts' }
+    ]
+  },
+  {
+    id: 'topone',
+    eyebrow: 'Day Anchor',
+    question: 'What\'s your #1 today?',
+    hint: 'One thing that, if done, makes today a win. This goes at the top of the Clem handoff.',
+    fields: [
+      { type: 'short', id: 'top-one', placeholder: 'e.g. Call the Garcias and send 3 listings' }
+    ]
+  }
+];
+
+// ══════════════════════════════════════
+// FORM STATE
+// ══════════════════════════════════════
+let currentStep = 0;
+let formData = {};
+let tempContacts = [];
+
+function buildProgressTrack() {
+  const el = document.getElementById('progress-track');
+  el.innerHTML = STEPS.map((_,i) => `<div class="progress-dot" id="pd-${i}"></div>`).join('');
+}
+
+function updateProgress() {
+  STEPS.forEach((_,i) => {
+    const el = document.getElementById('pd-'+i);
+    if (!el) return;
+    el.classList.toggle('done', i < currentStep);
+    el.classList.toggle('active', i === currentStep);
+  });
+}
+
+function renderStep(n) {
+  currentStep = n;
+  updateProgress();
+  const step = STEPS[n];
+  const isLast = n === STEPS.length - 1;
+  const container = document.getElementById('step-container');
+
+  let fieldsHTML = step.fields.map(f => renderField(f)).join('');
+
+  container.innerHTML = `
+    <div class="step-card">
+      <div class="step-eyebrow">${step.eyebrow}</div>
+      <div class="step-question">${step.question}</div>
+      <div class="step-hint">${step.hint}</div>
+      ${fieldsHTML}
+      <div class="step-nav">
+        ${n > 0 ? `<button class="btn-back" onclick="goStep(${n-1})">Back</button>` : ''}
+        <button class="${isLast ? 'btn-next green-btn' : 'btn-next'}" onclick="${isLast ? 'finishCheckin()' : `goStep(${n+1})`}">
+          ${isLast ? '✓ Complete check-in' : 'Next'}
+        </button>
+      </div>
+    </div>`;
+
+  // Restore saved values
+  step.fields.forEach(f => {
+    if (f.id && formData[f.id]) {
+      const el = document.getElementById('fi-'+f.id);
+      if (el) el.value = formData[f.id];
+    }
+  });
+
+  // Render contacts if on contacts step
+  if (step.id === 'contacts') renderTempContacts();
+  // Restore habits
+  if (step.id === 'habits' && formData['habits']) {
+    formData['habits'].forEach(id => {
+      const cb = document.getElementById('hcb-'+id);
+      if (cb) { cb.checked = true; cb.closest('.habit-item').classList.add('checked'); }
+    });
+  }
+  // Restore photos on hot/warm steps
+  if (step.id === 'hot' || step.id === 'warm') setTimeout(restorePhotos, 50);
+}
+
+function renderField(f) {
+  if (f.type === 'voice') return `
+    <div${f.label ? '' : ''}>
+      ${f.label ? `<div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:6px;margin-top:12px">${f.label}</div>` : ''}
+      <div class="voice-field" id="vf-${f.id}">
+        <textarea class="answer-box" id="fi-${f.id}" placeholder="${f.placeholder}"></textarea>
+        <div class="voice-bar">
+          <button class="voice-btn" id="vbtn-${f.id}" onclick="toggleVoice('${f.id}')">
+            <span class="mic-icon">🎙</span> Hold to dictate
+          </button>
+          <span class="voice-status" id="vstatus-${f.id}">Click and speak — releases when done</span>
+        </div>
+      </div>
+    </div>`;
+
+  if (f.type === 'short') return `
+    <div style="margin-top:${f.label ? '12px' : '0'}">
+      ${f.label ? `<div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:6px">${f.label}</div>` : ''}
+      <input class="short-input" id="fi-${f.id}" placeholder="${f.placeholder}" type="text">
+    </div>`;
+
+  if (f.type === 'number') return `
+    <div style="margin-top:16px">
+      <div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:8px">${f.label}</div>
+      <input class="num-input" id="fi-${f.id}" type="number" min="1" max="12" placeholder="${f.placeholder}">
+    </div>`;
+
+  if (f.type === 'habits') return `
+    <div class="habit-list">
+      ${[
+        ['h1','Gratitudes & affirmations','#1 · daily'],
+        ['h2','Personal note written today','#3 · daily'],
+        ['h3','Hot List reviewed and touched','#4 · daily'],
+        ['h4','Warm List reviewed and touched','#5 · daily'],
+        ['h5','Customer service calls','#6 · weekly'],
+        ['h6','Real estate review scheduled','#7 · weekly'],
+        ['h7','Live interactions progressing toward 50','#8 · weekly'],
+        ['h8','Database & Hot Sheet updated','#9 · weekly'],
+      ].map(([id,label,tag]) => `
+        <div class="habit-item" onclick="toggleHabit('${id}',this)" id="hi-${id}">
+          <div class="habit-check" id="hcheck-${id}">✓</div>
+          <div class="habit-label">${label}</div>
+          <div class="habit-tag">${tag}</div>
+          <input type="checkbox" id="hcb-${id}" style="display:none">
+        </div>`).join('')}
+    </div>`;
+
+  if (f.type === 'contacts') return `
+    <div class="contact-adder">
+      <div class="contact-add-row">
+        <input class="short-input" id="new-cn" placeholder="Name" style="margin-bottom:0">
+        <input class="short-input" id="new-ca" placeholder="Action (call, listing, text...)" style="margin-bottom:0">
+        <button class="add-btn" onclick="addTempContact()">Add</button>
+      </div>
+      <div class="contact-chips" id="temp-chips"></div>
+    </div>`;
+
+  if (f.type === 'photo') {
+    const savedKey = 'photo_' + f.id;
+    return `
+    <div style="margin-top:14px">
+      <div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:6px">${f.label}</div>
+      <div class="photo-upload-zone" onclick="document.getElementById('pf-${f.id}').click()">
+        <input type="file" id="pf-${f.id}" accept="image/*" onchange="handlePhotoUpload('${f.id}',this)">
+        <div class="photo-upload-label" id="pfl-${f.id}">📸 Tap to upload or take a photo</div>
+        <img class="photo-preview" id="pp-${f.id}" src="">
+        <button class="photo-clear-btn" id="pcl-${f.id}" onclick="event.stopPropagation();clearPhoto('${f.id}')">✕ Remove photo</button>
+      </div>
+    </div>`;
+  }
+
+  return '';
+}
+
+function toggleHabit(id, el) {
+  const cb = document.getElementById('hcb-'+id);
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+}
+
+function addTempContact() {
+  const n = document.getElementById('new-cn').value.trim();
+  const a = document.getElementById('new-ca').value.trim();
+  if (!n) return;
+  tempContacts.push({name:n, action:a});
+  document.getElementById('new-cn').value = '';
+  document.getElementById('new-ca').value = '';
+  renderTempContacts();
+}
+
+function removeTempContact(i) {
+  tempContacts.splice(i,1);
+  renderTempContacts();
+}
+
+function renderTempContacts() {
+  const el = document.getElementById('temp-chips');
+  if (!el) return;
+  el.innerHTML = tempContacts.map((c,i) => `
+    <div class="contact-chip">
+      ${c.name}
+      ${c.action ? `<span class="chip-action">· ${c.action}</span>` : ''}
+      <button class="chip-remove" onclick="removeTempContact(${i})">×</button>
+    </div>`).join('');
+}
+
+function goStep(n) {
+  // Save current step data
+  const step = STEPS[currentStep];
+  step.fields.forEach(f => {
+    if (f.id) {
+      const el = document.getElementById('fi-'+f.id);
+      if (el) formData[f.id] = el.value;
+    }
+    if (f.type === 'habits') {
+      formData['habits'] = ['h1','h2','h3','h4','h5','h6','h7','h8']
+        .filter(id => document.getElementById('hcb-'+id)?.checked);
+    }
+  });
+  renderStep(n);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function finishCheckin() {
+  // Save last step
+  const step = STEPS[currentStep];
+  step.fields.forEach(f => {
+    if (f.id) {
+      const el = document.getElementById('fi-'+f.id);
+      if (el) formData[f.id] = el.value;
+    }
+  });
+
+  const td = todayKey();
+  const habits = formData['habits'] || [];
+  const entry = {
+    done: true, date: td,
+    gratitude: formData['gratitude'] || '',
+    noteCandidate: formData['note-candidate'] || '',
+    appts: formData['appts'] || '',
+    contracts: formData['contracts'] || '',
+    hotFocus: formData['hot-focus'] || '',
+    warmFocus: formData['warm-focus'] || '',
+    warmToHot: formData['warm-to-hot'] || '',
+    habits: habits,
+    pomos: formData['pomos'] || '',
+    contacts: [...tempContacts],
+    topOne: formData['top-one'] || '',
+    eveningDone: '', eveningCarry: '', eveningClem: ''
+  };
+  db.days[td] = entry;
+
+  // Update contact log
+  tempContacts.forEach(c => {
+    const ex = db.contacts.find(x => x.name.toLowerCase() === c.name.toLowerCase());
+    if (ex) {
+      ex.touches = (ex.touches||0) + 1;
+      ex.lastTouch = td;
+      ex.log = ex.log || [];
+      ex.log.push({date:td, action:c.action});
+    } else {
+      db.contacts.push({name:c.name, touches:1, lastTouch:td, log:[{date:td,action:c.action}]});
+    }
+  });
+
+  saveDB();
+  updateStreakDisplay();
+  showDoneState(entry);
+}
+
+function showDoneState(entry) {
+  document.getElementById('checkin-form').style.display = 'none';
+  document.getElementById('done-state').style.display = 'block';
+  document.getElementById('done-summary').textContent =
+    `${entry.habits.length}/8 habits committed · ${entry.contacts.length} contacts queued · #1: ${entry.topOne||'(not set)'}`;
+
+  const ds = document.getElementById('done-summaries');
+  const rows = [
+    ['Gratitude', entry.gratitude],
+    ['Appointments & contracts', [entry.appts, entry.contracts].filter(Boolean).join('\n')],
+    ['Hot List focus', entry.hotFocus],
+    ['Warm List focus', entry.warmFocus],
+    ['Your #1', entry.topOne],
+  ].filter(([,v]) => v);
+
+  ds.innerHTML = rows.map(([label, val]) => `
+    <div class="summary-card">
+      <div class="summary-label">${label}</div>
+      <div class="summary-text">${val}</div>
+    </div>`).join('');
+}
+
+function editToday() {
+  const td = todayKey();
+  const entry = db.days[td];
+  if (entry) {
+    formData = {
+      gratitude: entry.gratitude, 'note-candidate': entry.noteCandidate,
+      appts: entry.appts, contracts: entry.contracts,
+      'hot-focus': entry.hotFocus, 'warm-focus': entry.warmFocus,
+      'warm-to-hot': entry.warmToHot, habits: entry.habits,
+      pomos: entry.pomos, 'top-one': entry.topOne
+    };
+    tempContacts = [...(entry.contacts||[])];
+  }
+  document.getElementById('done-state').style.display = 'none';
+  document.getElementById('checkin-form').style.display = 'block';
+  renderStep(0);
+}
+
+// ══════════════════════════════════════
+// VOICE INPUT — accumulate, don't replace
+// ══════════════════════════════════════
+let recognition = null;
+let activeVoiceId = null;
+let isRecording = false;
+let voiceAccumulated = '';  // holds confirmed final transcripts
+let voiceInterim = '';      // holds in-progress interim
+
+function initVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        voiceAccumulated += e.results[i][0].transcript + ' ';
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    voiceInterim = interim;
+    const ta = document.getElementById('fi-' + activeVoiceId);
+    if (ta) ta.value = voiceAccumulated + voiceInterim;
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return; // ignore silence, don't crash
+    setVoiceStatus(activeVoiceId, '⚠ ' + e.error);
+    stopVoice();
+  };
+
+  recognition.onend = () => {
+    if (isRecording) {
+      try { recognition.start(); } catch(err) {}
+    }
+  };
+}
+
+function toggleVoice(id) {
+  if (isRecording && activeVoiceId === id) {
+    stopVoice();
+  } else {
+    if (isRecording) stopVoice();
+    startVoice(id);
+  }
+}
+
+function startVoice(id) {
+  if (!recognition) { alert('Voice input requires Chrome. Please open this file in Chrome.'); return; }
+  activeVoiceId = id;
+  isRecording = true;
+  // Seed accumulated with whatever is already typed so we don't wipe existing text
+  const ta = document.getElementById('fi-' + id);
+  voiceAccumulated = ta ? ta.value : '';
+  voiceInterim = '';
+  const btn = document.getElementById('vbtn-'+id);
+  const vf = document.getElementById('vf-'+id);
+  if (btn) { btn.classList.add('recording'); btn.innerHTML = '<span class="mic-icon">⏹</span> Recording — click to stop'; }
+  if (vf) vf.classList.add('recording');
+  setVoiceStatus(id, '🔴 Listening — speak freely, pauses are OK...');
+  try { recognition.start(); } catch(err) {}
+}
+
+function stopVoice() {
+  if (!recognition) return;
+  isRecording = false;
+  recognition.stop();
+  const btn = document.getElementById('vbtn-'+activeVoiceId);
+  const vf = document.getElementById('vf-'+activeVoiceId);
+  if (btn) { btn.classList.remove('recording'); btn.innerHTML = '<span class="mic-icon">🎙</span> Hold to dictate'; }
+  if (vf) vf.classList.remove('recording');
+  setVoiceStatus(activeVoiceId, '✓ Done — edit above if needed');
+  activeVoiceId = null;
+}
+
+function setVoiceStatus(id, msg) {
+  const el = document.getElementById('vstatus-'+id);
+  if (el) el.textContent = msg;
+}
+
+// ══════════════════════════════════════
+// HOT & WARM LIST
+// ══════════════════════════════════════
+function getHWList(tier) {
+  if (!db.hwList) db.hwList = { hot: [], warm: [] };
+  if (!db.hwList[tier]) db.hwList[tier] = [];
+  return db.hwList[tier];
+}
+
+function addHWContact(tier) {
+  const nameEl = document.getElementById('new-'+tier+'-name');
+  const nextEl = document.getElementById('new-'+tier+'-next');
+  const name = nameEl.value.trim();
+  if (!name) return;
+  const list = getHWList(tier);
+  // avoid duplicates
+  if (list.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    nameEl.value = ''; nextEl.value = ''; return;
+  }
+  list.push({ name, nextStep: nextEl.value.trim(), touchedToday: false, addedDate: todayKey() });
+  // also sync status to contact record
+  setContactStatus(name, tier);
+  saveDB();
+  nameEl.value = ''; nextEl.value = '';
+  renderHotWarm();
+  renderContacts();
+}
+
+function removeHWContact(tier, idx) {
+  const list = getHWList(tier);
+  const name = list[idx].name;
+  list.splice(idx, 1);
+  // clear status if not in other tier
+  const otherTier = tier === 'hot' ? 'warm' : 'hot';
+  const inOther = getHWList(otherTier).find(c => c.name.toLowerCase() === name.toLowerCase());
+  if (!inOther) setContactStatus(name, '');
+  saveDB();
+  renderHotWarm();
+  renderContacts();
+}
+
+function updateHWNext(tier, idx, val) {
+  const list = getHWList(tier);
+  if (list[idx]) { list[idx].nextStep = val; saveDB(); }
+}
+
+function toggleHWTouch(tier, idx) {
+  const list = getHWList(tier);
+  if (!list[idx]) return;
+  list[idx].touchedToday = !list[idx].touchedToday;
+  saveDB();
+  renderHotWarm();
+}
+
+function moveHWContact(fromTier, idx) {
+  const toTier = fromTier === 'hot' ? 'warm' : 'hot';
+  const fromList = getHWList(fromTier);
+  const toList = getHWList(toTier);
+  const contact = fromList.splice(idx, 1)[0];
+  if (contact) {
+    contact.touchedToday = false;
+    toList.unshift(contact);
+    setContactStatus(contact.name, toTier);
+  }
+  saveDB();
+  renderHotWarm();
+  renderContacts();
+}
+
+function renderHotWarm() {
+  // Reset touched today at start of new day
+  const td = todayKey();
+  ['hot','warm'].forEach(tier => {
+    getHWList(tier).forEach(c => {
+      if (c.lastTouchReset !== td) { c.touchedToday = false; c.lastTouchReset = td; }
+    });
+  });
+
+  ['hot','warm'].forEach(tier => {
+    const list = getHWList(tier);
+    const el = document.getElementById(tier+'-list');
+    const countEl = document.getElementById(tier+'-count');
+    if (countEl) countEl.textContent = `${list.length} contact${list.length!==1?'s':''}`;
+    if (!el) return;
+
+    if (!list.length) {
+      el.innerHTML = `<div style="font-size:13px;color:var(--ink-muted);padding:10px 0;">No ${tier} contacts yet — add names above.</div>`;
+      return;
+    }
+
+    el.innerHTML = list.map((c, i) => {
+      const otherTier = tier === 'hot' ? 'warm' : 'hot';
+      const moveLabel = tier === 'hot' ? '→ Warm' : '→ Hot';
+      return `
+      <div class="hw-card ${tier}-card">
+        <div class="hw-card-main">
+          <div class="hw-touched-dot${c.touchedToday?' done':''}" onclick="toggleHWTouch('${tier}',${i})" title="${c.touchedToday?'Touched today':'Mark as touched today'}"></div>
+          <div class="hw-name">${c.name}</div>
+          <div class="hw-next">${c.nextStep||'— add next step below —'}</div>
+          ${c.touchedToday ? '<span class="hw-touched-today">✓ touched</span>' : ''}
+          <button class="hw-remove" onclick="moveHWContact('${tier}',${i})" title="${moveLabel}" style="font-size:11px;color:var(--ink-muted);border:0.5px solid var(--border);border-radius:6px;padding:3px 7px;">${moveLabel}</button>
+          <button class="hw-remove" onclick="removeHWContact('${tier}',${i})" title="Remove">×</button>
+        </div>
+        <input class="hw-next-input" placeholder="Next step..." value="${c.nextStep||''}"
+          onchange="updateHWNext('${tier}',${i},this.value)"
+          onblur="updateHWNext('${tier}',${i},this.value)">
+      </div>`;
+    }).join('');
+  });
+}
+
+// ── Contact status (hot/warm/none) synced from HW list ──
+function setContactStatus(name, status) {
+  const key = name.toLowerCase().trim();
+  if (!db.contactStatus) db.contactStatus = {};
+  db.contactStatus[key] = status;
+}
+
+function getContactStatus(name) {
+  if (!db.contactStatus) db.contactStatus = {};
+  const key = name.toLowerCase().trim();
+  // auto-derive from HW list if not explicitly set
+  if (getHWList('hot').find(c => c.name.toLowerCase().trim() === key)) return 'hot';
+  if (getHWList('warm').find(c => c.name.toLowerCase().trim() === key)) return 'warm';
+  return db.contactStatus[key] || '';
+}
+
+function cycleStatus(name) {
+  const current = getContactStatus(name);
+  const next = current === '' ? 'hot' : current === 'hot' ? 'warm' : '';
+  // sync to HW list
+  ['hot','warm'].forEach(tier => {
+    const list = getHWList(tier);
+    const idx = list.findIndex(c => c.name.toLowerCase().trim() === name.toLowerCase().trim());
+    if (idx >= 0) list.splice(idx, 1);
+  });
+  if (next) {
+    getHWList(next).push({ name, nextStep: '', touchedToday: false, addedDate: todayKey() });
+  }
+  setContactStatus(name, next);
+  saveDB();
+  renderHotWarm();
+  renderContacts();
+}
+
+// ══════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════
+function renderDashboard() {
+  const streak = getStreak();
+  const allDone = Object.values(db.days).filter(d => d.done);
+  document.getElementById('m-total').textContent = allDone.length;
+  document.getElementById('m-streak').textContent = streak;
+
+  const now = new Date();
+  const mStart = new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  const mContacts = allDone.filter(d=>d.date>=mStart).reduce((s,d)=>s+(d.contacts||[]).length,0);
+  document.getElementById('m-contacts').textContent = mContacts;
+
+  const avgH = allDone.length ? (allDone.reduce((s,d)=>s+(d.habits||[]).length,0)/allDone.length).toFixed(1) : '—';
+  document.getElementById('m-habits').textContent = avgH;
+
+  // Streak dots
+  const dots = document.getElementById('streak-dots');
+  dots.innerHTML = '';
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate()-i);
+    const k = d.toISOString().slice(0,10);
+    const el = document.createElement('div');
+    el.className = 'streak-dot s-dot' + (db.days[k]?.done ? ' done' : '') + (i===0?' today':'');
+    el.title = fmtDate(k);
+    dots.appendChild(el);
+  }
+
+  // Bar chart
+  const chart = document.getElementById('bar-chart');
+  const vals = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate()-i);
+    const k = d.toISOString().slice(0,10);
+    vals.push({ label: d.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}), val: (db.days[k]?.contacts||[]).length });
+  }
+  const max = Math.max(...vals.map(v=>v.val), 1);
+  // Y-axis labels
+  const yTop = document.getElementById('y-top');
+  const yMid = document.getElementById('y-mid');
+  if (yTop) yTop.textContent = max;
+  if (yMid) yMid.textContent = Math.round(max / 2);
+  chart.innerHTML = vals.map(v => `
+    <div class="bar-col">
+      <div class="bar-fill${v.val===0?' zero':''}" style="height:${Math.max(4,(v.val/max)*90)}px"></div>
+      <div class="bar-lbl">${v.label}</div>
+    </div>`).join('');
+
+  // Recent log
+  const log = document.getElementById('recent-log');
+  const recent = Object.values(db.days).filter(d=>d.done).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  if (!recent.length) { log.innerHTML = '<div class="empty-state"><div class="e-icon">📅</div>No check-ins yet.</div>'; return; }
+  log.innerHTML = recent.map(e => `
+    <div class="log-row">
+      <div class="log-date">${fmtDate(e.date)}</div>
+      <div class="log-meta">${e.habits.length}/8 habits · ${(e.contacts||[]).length} contacts</div>
+      <div class="log-top">${e.topOne ? '"'+e.topOne+'"' : ''}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════
+// PHOTO UPLOAD (Hot / Warm list sheets)
+// ══════════════════════════════════════
+function handlePhotoUpload(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    try { localStorage.setItem('photo_' + id, dataUrl); } catch(err) {}
+    showPhoto(id, dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPhoto(id, dataUrl) {
+  const preview = document.getElementById('pp-' + id);
+  const label = document.getElementById('pfl-' + id);
+  const clearBtn = document.getElementById('pcl-' + id);
+  if (!preview) return;
+  preview.src = dataUrl;
+  preview.style.display = 'block';
+  if (label) label.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = 'block';
+}
+
+function clearPhoto(id) {
+  try { localStorage.removeItem('photo_' + id); } catch(err) {}
+  const preview = document.getElementById('pp-' + id);
+  const label = document.getElementById('pfl-' + id);
+  const clearBtn = document.getElementById('pcl-' + id);
+  const input = document.getElementById('pf-' + id);
+  if (preview) { preview.src = ''; preview.style.display = 'none'; }
+  if (label) label.style.display = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (input) input.value = '';
+}
+
+function restorePhotos() {
+  ['hot-photo', 'warm-photo'].forEach(id => {
+    try {
+      const saved = localStorage.getItem('photo_' + id);
+      if (saved) showPhoto(id, saved);
+    } catch(err) {}
+  });
+}
+
+// ══════════════════════════════════════
+// CONTACTS + SPHERE
+// ══════════════════════════════════════
+
+function currentMonthKey() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+}
+
+function getMonthlyData() {
+  if (!db.monthly) db.monthly = {};
+  const mk = currentMonthKey();
+  if (!db.monthly[mk]) db.monthly[mk] = {};
+  return db.monthly[mk];
+}
+
+function getContactMonthly(name) {
+  const md = getMonthlyData();
+  const key = name.toLowerCase().trim();
+  if (!md[key]) md[key] = { nl: false, pc: false, method: '' };
+  return md[key];
+}
+
+function setContactMonthly(name, field, value) {
+  const md = getMonthlyData();
+  const key = name.toLowerCase().trim();
+  if (!md[key]) md[key] = { nl: false, pc: false, method: '' };
+  md[key][field] = value;
+  saveDB();
+}
+
+function selectAllMonthly(field, checked) {
+  const allContacts = getMergedContacts();
+  const md = getMonthlyData();
+  allContacts.forEach(c => {
+    const key = c.name.toLowerCase().trim();
+    if (!md[key]) md[key] = { nl: false, pc: false, method: '' };
+    md[key][field] = checked;
+  });
+  saveDB();
+  renderContacts();
+}
+
+// Parse sphere CSV into array of {name, phone, email, address, tags}
+function parseSphereCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  // Find header row
+  let headerIdx = lines.findIndex(l => l.toLowerCase().includes('name') && l.toLowerCase().includes('phone'));
+  if (headerIdx < 0) headerIdx = 1;
+  const headers = lines[headerIdx].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
+  const nameIdx = headers.findIndex(h => h === 'name');
+  const phoneIdx = headers.findIndex(h => h === 'phone');
+  const emailIdx = headers.findIndex(h => h === 'email');
+  const cityIdx = headers.findIndex(h => h === 'city');
+  const tagsIdx = headers.findIndex(h => h === 'tags');
+
+  const contacts = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    // Handle quoted fields
+    const cols = parseCSVLine(lines[i]);
+    const name = cols[nameIdx]?.replace(/"/g,'').trim();
+    if (!name) continue;
+    contacts.push({
+      name,
+      phone: cols[phoneIdx]?.replace(/"/g,'').trim() || '',
+      email: cols[emailIdx]?.replace(/"/g,'').trim() || '',
+      city: cols[cityIdx]?.replace(/"/g,'').trim() || '',
+      tags: cols[tagsIdx]?.replace(/"/g,'').trim() || '',
+    });
+  }
+  return contacts;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuote = !inQuote; }
+    else if (ch === ',' && !inQuote) { result.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  result.push(cur);
+  return result;
+}
+
+function loadSphereCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const contacts = parseSphereCSV(e.target.result);
+    db.sphere = contacts;
+    db.sphereLoaded = currentMonthKey();
+    saveDB();
+    updateSphereStatus();
+    renderContacts();
+  };
+  reader.readAsText(file);
+}
+
+function updateSphereStatus() {
+  const statusEl = document.getElementById('sphere-status');
+  const noteEl = document.getElementById('sphere-month-note');
+  if (!statusEl) return;
+  if (db.sphere && db.sphere.length) {
+    const mLabel = new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    statusEl.textContent = `${db.sphere.length} contacts loaded from sphere`;
+    if (noteEl) noteEl.textContent = `Re-upload on the 1st of each month to sync new additions — currently: ${mLabel}`;
+  } else {
+    statusEl.textContent = 'No sphere list loaded — upload your CSV to enable coverage tracking';
+    if (noteEl) noteEl.textContent = '';
+  }
+}
+
+// Merge sphere list + touch log into one unified list
+function getMergedContacts() {
+  const merged = {};
+
+  // Start with sphere
+  (db.sphere || []).forEach(s => {
+    const key = s.name.toLowerCase().trim();
+    merged[key] = { name: s.name, touches: 0, lastTouch: null, sphereOnly: true, phone: s.phone, email: s.email };
+  });
+
+  // Layer in touch log
+  (db.contacts || []).forEach(c => {
+    const key = c.name.toLowerCase().trim();
+    if (merged[key]) {
+      merged[key].touches = c.touches;
+      merged[key].lastTouch = c.lastTouch;
+      merged[key].sphereOnly = false;
+    } else {
+      merged[key] = { name: c.name, touches: c.touches, lastTouch: c.lastTouch, sphereOnly: false };
+    }
+  });
+
+  return Object.values(merged).sort((a,b) => {
+    // Touched first (sorted by touch count desc), then untouched sphere contacts alphabetically
+    if (a.touches > 0 && b.touches === 0) return -1;
+    if (a.touches === 0 && b.touches > 0) return 1;
+    if (a.touches !== b.touches) return b.touches - a.touches;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function renderContacts() {
+  updateSphereStatus();
+  const allContacts = getMergedContacts();
+  const el = document.getElementById('contact-list-full');
+
+  if (!allContacts.length) {
+    el.innerHTML = '<div class="empty-state"><div class="e-icon">👥</div>No contacts yet. Add them during check-in or upload your sphere CSV above.</div>';
+    return;
+  }
+
+  const md = getMonthlyData();
+  const mLabel = new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+
+  // Coverage stats
+  const total = allContacts.length;
+  const touched = allContacts.filter(c => c.touches > 0).length;
+  const nlDone = allContacts.filter(c => md[c.name.toLowerCase().trim()]?.nl).length;
+  const pcDone = allContacts.filter(c => md[c.name.toLowerCase().trim()]?.pc).length;
+
+  const coverageCard = document.getElementById('coverage-card');
+  const coverageBars = document.getElementById('coverage-bars');
+  if (coverageCard && total > 0) {
+    coverageCard.style.display = 'block';
+    coverageBars.innerHTML = [
+      { label: `Touched this month`, done: touched, total },
+      { label: `Newsletter sent`, done: nlDone, total },
+      { label: `Postcard sent`, done: pcDone, total },
+    ].map(r => `
+      <div class="coverage-row">
+        <div class="coverage-label">${r.label}</div>
+        <div class="coverage-track"><div class="coverage-fill" style="width:${Math.round((r.done/r.total)*100)}%"></div></div>
+        <div class="coverage-num">${r.done} / ${r.total}</div>
+      </div>`).join('');
+  }
+
+  // Select-all header state
+  const allNl = allContacts.every(c => md[c.name.toLowerCase().trim()]?.nl);
+  const allPc = allContacts.every(c => md[c.name.toLowerCase().trim()]?.pc);
+  const saNl = document.getElementById('sa-nl');
+  const saPc = document.getElementById('sa-pc');
+  if (saNl) saNl.checked = allNl;
+  if (saPc) saPc.checked = allPc;
+
+  const maxTouches = Math.max(...allContacts.map(c => c.touches), 1);
+
+  el.innerHTML = allContacts.map(c => {
+    const cm = getContactMonthly(c.name);
+    const methodClass = cm.method === 'Call' ? 'set-call' : cm.method === 'Text' ? 'set-text' : cm.method === 'Email' ? 'set-email' : '';
+    const nameEsc = c.name.replace(/'/g,"\\'");
+    const isUntouched = c.touches === 0;
+    const status = getContactStatus(c.name);
+    const pillLabel = status === 'hot' ? '🔴 hot' : status === 'warm' ? '🟡 warm' : '·';
+    const pillClass = status === 'hot' ? 'hot' : status === 'warm' ? 'warm' : 'none';
+    return `
+    <div class="contact-table-row${isUntouched ? ' untouched' : ''}">
+      <div class="ct-name${c.sphereOnly ? ' sphere-only' : ''}">
+        ${c.name}${isUntouched ? '<span class="ct-untouched-badge">not touched</span>' : ''}
+      </div>
+      <div class="ct-bar"><div class="ct-bar-fill" style="width:${c.touches > 0 ? Math.round((c.touches/maxTouches)*100) : 0}%"></div></div>
+      <div class="ct-status">
+        <span class="status-pill ${pillClass}" onclick="cycleStatus('${nameEsc}')" title="Click to cycle: none → hot → warm → none">${pillLabel}</span>
+      </div>
+      <div class="ct-count${c.touches === 0 ? ' zero' : ''}">${c.touches || '·'}</div>
+      <div class="ct-last">${c.lastTouch ? fmtDate(c.lastTouch) : '—'}</div>
+      <div class="ct-method">
+        <select class="touch-method-select ${methodClass}" onchange="onMethodChange('${nameEsc}',this)">
+          <option value="">— method —</option>
+          <option value="Call"${cm.method==='Call'?' selected':''}>📞 Call</option>
+          <option value="Text"${cm.method==='Text'?' selected':''}>💬 Text</option>
+          <option value="Email"${cm.method==='Email'?' selected':''}>✉️ Email</option>
+        </select>
+      </div>
+      <div class="ct-nl">
+        <input type="checkbox" class="monthly-cb" ${cm.nl ? 'checked' : ''}
+          onchange="onNlChange('${nameEsc}',this.checked)">
+      </div>
+      <div class="ct-pc">
+        <input type="checkbox" class="monthly-cb" ${cm.pc ? 'checked' : ''}
+          onchange="onPcChange('${nameEsc}',this.checked)">
+      </div>
+    </div>`;
+  }).join('');
+
+  const noteEl = document.getElementById('month-reset-note');
+  if (noteEl) noteEl.textContent = `Newsletter & Postcard columns track ${mLabel} — reset automatically each month`;
+}
+
+function onMethodChange(name, sel) {
+  const val = sel.value;
+  sel.className = 'touch-method-select' + (val==='Call'?' set-call':val==='Text'?' set-text':val==='Email'?' set-email':'');
+  setContactMonthly(name, 'method', val);
+}
+
+function onNlChange(name, checked) {
+  setContactMonthly(name, 'nl', checked);
+  const allContacts = getMergedContacts();
+  const md = getMonthlyData();
+  const saNl = document.getElementById('sa-nl');
+  if (saNl) saNl.checked = allContacts.every(c => md[c.name.toLowerCase().trim()]?.nl);
+}
+
+function onPcChange(name, checked) {
+  setContactMonthly(name, 'pc', checked);
+  const allContacts = getMergedContacts();
+  const md = getMonthlyData();
+  const saPc = document.getElementById('sa-pc');
+  if (saPc) saPc.checked = allContacts.every(c => md[c.name.toLowerCase().trim()]?.pc);
+}
+
+// ══════════════════════════════════════
+// HANDOFF — comparison view
+// ══════════════════════════════════════
+function renderHandoff() {
+  const td = todayKey();
+  const entry = db.days[td];
+  const compareBlock = document.getElementById('handoff-compare-block');
+  const emailBlock = document.getElementById('handoff-email-block');
+  const emptyBlock = document.getElementById('handoff-empty');
+
+  if (!entry) {
+    compareBlock.innerHTML = '';
+    if (emailBlock) emailBlock.style.display = 'none';
+    if (emptyBlock) emptyBlock.style.display = 'block';
+    return;
+  }
+  if (emptyBlock) emptyBlock.style.display = 'none';
+
+  const deb = db.debrief?.[td] || {};
+
+  // Morning column rows
+  const morningRows = [
+    ['#1 For Today', entry.topOne],
+    ['Pomodoros', entry.pomos],
+    ['Appointments', entry.appts],
+    ['Contract Deadlines', entry.contracts],
+    ['Hot List', entry.hotFocus],
+    ['Warm List', entry.warmFocus],
+    ['Contacts Planned', entry.contacts?.length ? entry.contacts.map(c=>`· ${c.name}${c.action?' — '+c.action:''}`).join('\n') : ''],
+    ['Ninja Habits', `${entry.habits?.length||0}/8`],
+  ].filter(([,v]) => v);
+
+  // Evening column rows
+  const eveningRows = [
+    ['Proud of today', deb.proud],
+    ['#1 Done?', deb.topOneDone ? (deb.topOneDone === 'yes' ? '✓ Yes' : '✗ No' + (deb.topOneWhy ? ' — ' + deb.topOneWhy : '')) : ''],
+    ["Didn't happen", deb.didntHappen],
+    ['Hot List touches', deb.hotTouches],
+    ['Warm signals', deb.warmSignals],
+    ['Live interactions', deb.liveInteractions ? `${deb.liveInteractions} today` : ''],
+    ['Personal note', deb.personalNote ? (deb.personalNote === 'yes' ? '✓ Sent' : '✗ Not sent') : ''],
+    ['Pomodoros actual', deb.pomosActual ? `${deb.pomosActual} of ${entry.pomos||'?'} planned` : ''],
+    ['Top 3 tomorrow', deb.topThree],
+    ['For Clem', deb.forClem],
+  ].filter(([,v]) => v);
+
+  function renderCol(rows, emptyMsg) {
+    if (!rows.length) return `<div class="hc-section"><div class="hc-val empty">${emptyMsg}</div></div>`;
+    return rows.map(([l,v]) => `
+      <div class="hc-section">
+        <div class="hc-label">${l}</div>
+        <div class="hc-val">${v}</div>
+      </div>`).join('');
+  }
+
+  compareBlock.innerHTML = `
+    <div style="margin-bottom:1.25rem;">
+      <div class="handoff-compare">
+        <div>
+          <div class="handoff-col-header handoff-col-morning">☀ Morning Plan</div>
+          <div class="handoff-col-doc">${renderCol(morningRows, 'Complete your morning check-in first.')}</div>
+        </div>
+        <div>
+          <div class="handoff-col-header handoff-col-evening">🌙 Evening Actual</div>
+          <div class="handoff-col-doc evening">${renderCol(eveningRows, 'Complete tonight\'s debrief to fill this in.')}</div>
+        </div>
+      </div>
+    </div>`;
+
+  // Build email body
+  if (emailBlock) {
+    emailBlock.style.display = 'block';
+    const emailBody = buildHandoffEmail(entry, deb, td);
+    const emailBodyEl = document.getElementById('handoff-email-body');
+    if (emailBodyEl) emailBodyEl.textContent = emailBody;
+  }
+}
+
+function buildHandoffEmail(e, deb, td) {
+  let txt = `DRE Daily Handoff — ${fmtDate(td)}\n\n`;
+  txt += `#1 FOR TODAY: ${e.topOne||'—'}\n`;
+  txt += `POMODOROS: ${e.pomos||'—'} planned`;
+  if (deb.pomosActual) txt += ` / ${deb.pomosActual} actual`;
+  txt += '\n\n';
+  if (e.appts) txt += `APPOINTMENTS:\n${e.appts}\n\n`;
+  if (e.contracts) txt += `CONTRACT DEADLINES:\n${e.contracts}\n\n`;
+  txt += `HOT LIST:\n${e.hotFocus||'—'}\n\n`;
+  txt += `WARM LIST:\n${e.warmFocus||'—'}\n\n`;
+  if (e.contacts?.length) txt += `CONTACTS PLANNED:\n${e.contacts.map(c=>`· ${c.name}${c.action?' — '+c.action:''}`).join('\n')}\n\n`;
+  txt += `NINJA HABITS: ${e.habits?.length||0}/8\n\n`;
+
+  if (Object.keys(deb).length) {
+    txt += `${'─'.repeat(40)}\nEVENING DEBRIEF\n${'─'.repeat(40)}\n\n`;
+    if (deb.proud) txt += `PROUD OF TODAY:\n${deb.proud}\n\n`;
+    if (deb.topOneDone) {
+      txt += `#1 DONE? ${deb.topOneDone === 'yes' ? 'Yes' : 'No'}`;
+      if (deb.topOneWhy) txt += ` — ${deb.topOneWhy}`;
+      txt += '\n\n';
+    }
+    if (deb.didntHappen) txt += `DIDN'T HAPPEN:\n${deb.didntHappen}\n\n`;
+    if (deb.hotTouches) txt += `HOT TOUCHES:\n${deb.hotTouches}\n\n`;
+    if (deb.warmSignals) txt += `WARM SIGNALS:\n${deb.warmSignals}\n\n`;
+    if (deb.liveInteractions) txt += `LIVE INTERACTIONS TODAY: ${deb.liveInteractions}\n\n`;
+    if (deb.topThree) txt += `TOP 3 TOMORROW:\n${deb.topThree}\n\n`;
+    if (deb.forClem) txt += `FOR CLEM:\n${deb.forClem}\n\n`;
+  } else {
+    txt += '[Debrief to be added at end of day]';
+  }
+  return txt.trim();
+}
+
+function copyHandoff() {
+  const td = todayKey();
+  const entry = db.days[td];
+  const deb = db.debrief?.[td] || {};
+  if (!entry) return;
+  const txt = buildHandoffEmail(entry, deb, td);
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy email', 2000);
+  });
+}
+
+// ══════════════════════════════════════
+// DEBRIEF
+// ══════════════════════════════════════
+const DEBRIEF_STEPS = [
+  {
+    id: 'proud',
+    eyebrow: 'Closing the day',
+    question: 'What did you get done today that you\'re proud of?',
+    hint: 'Not just tasks — moments, conversations, habits. What actually happened?',
+    fields: [{ type: 'voice', id: 'proud', placeholder: 'e.g. Had a great call with the Garcias, sent 4 listings, wrote my personal note...' }]
+  },
+  {
+    id: 'topOneDone',
+    eyebrow: 'Day Anchor',
+    question: 'Did your #1 get done?',
+    hint: 'Your #1 from this morning.',
+    fields: [
+      { type: 'yesno', id: 'topOneDone', topOneRef: true },
+      { type: 'voice', id: 'topOneWhy', label: 'If no — why not? What got in the way?', placeholder: 'e.g. Appointment ran long, jumped into admin instead...' }
+    ]
+  },
+  {
+    id: 'didntHappen',
+    eyebrow: 'Gaps',
+    question: 'What didn\'t happen — and why?',
+    hint: 'Honest accounting. What slipped and what caused it?',
+    fields: [{ type: 'voice', id: 'didntHappen', placeholder: 'e.g. Didn\'t review Warm List — got pulled into a showing. No personal note today.' }]
+  },
+  {
+    id: 'hotTouches',
+    eyebrow: 'Ninja Habit #4 — Hot List',
+    question: 'Hot List — what touches did you make? Any movement?',
+    hint: 'Who did you reach out to? Did anyone\'s status change?',
+    fields: [{ type: 'voice', id: 'hotTouches', placeholder: 'e.g. Texted the Garcias with 2 listings, Martinez called back — moving up timeline to Feb...' }]
+  },
+  {
+    id: 'warmSignals',
+    eyebrow: 'Ninja Habit #5 — Warm List',
+    question: 'Warm List — any new signals spotted today?',
+    hint: 'Anyone to add? Anyone to move up to Hot?',
+    fields: [{ type: 'voice', id: 'warmSignals', placeholder: 'e.g. Kevin posted he got a promotion — adding to Warm. Sarah mentioned they\'re outgrowing their place...' }]
+  },
+  {
+    id: 'liveInteractions',
+    eyebrow: 'Ninja Habit #8 — Live Interactions',
+    question: 'How many live interactions today?',
+    hint: 'Two-way exchanges only — calls, texts, face-to-face. Tracking toward 50 this week.',
+    fields: [{ type: 'number', id: 'liveInteractions', label: 'Live interactions today', placeholder: '0' }]
+  },
+  {
+    id: 'personalNote',
+    eyebrow: 'Ninja Habit #3 — Personal Note',
+    question: 'Personal note — sent today?',
+    hint: 'Handwritten, no business cards. One per day is the goal.',
+    fields: [{ type: 'yesno', id: 'personalNote', labels: ['Yes — sent', 'Not today'] }]
+  },
+  {
+    id: 'pomosActual',
+    eyebrow: 'Pomodoros',
+    question: 'Pomodoros — planned vs actual',
+    hint: 'How many focus chunks did you actually complete?',
+    fields: [{ type: 'number', id: 'pomosActual', label: 'Pomodoros completed today', placeholder: '0' }]
+  },
+  {
+    id: 'topThree',
+    eyebrow: 'Tomorrow',
+    question: 'What carries to tomorrow? Top 3 only.',
+    hint: 'Not the easiest three — the most important three.',
+    fields: [{ type: 'voice', id: 'topThree', placeholder: 'e.g. 1. Call Martinez to confirm timeline. 2. Real estate review with the Hendersons. 3. Send Warm market update.' }]
+  },
+  {
+    id: 'forClem',
+    eyebrow: 'For Clem',
+    question: 'Anything for Clem?',
+    hint: 'CRM updates, materials to prep, follow-ups to set up, anything that needs to happen on the back end.',
+    fields: [{ type: 'voice', id: 'forClem', placeholder: 'e.g. Update Martinez status to Hot in FUB. Pull comps for Henderson neighborhood. Set birthday reminder for Kevin in CRM...' }]
+  }
+];
+
+let debriefStep = 0;
+let debriefData = {};
+
+function initDebrief() {
+  const td = todayKey();
+  const saved = db.debrief?.[td];
+  if (saved && saved._done) {
+    showDebriefDone(saved);
+    return;
+  }
+  // Pre-fill from saved if partial
+  if (saved) debriefData = { ...saved };
+  document.getElementById('debrief-done-state').style.display = 'none';
+  document.getElementById('debrief-form').style.display = 'block';
+  buildDebriefProgress();
+  renderDebriefStep(debriefStep);
+}
+
+function buildDebriefProgress() {
+  const el = document.getElementById('debrief-progress-track');
+  el.innerHTML = DEBRIEF_STEPS.map((_,i) => `<div class="progress-dot" id="dpd-${i}"></div>`).join('');
+}
+
+function updateDebriefProgress() {
+  DEBRIEF_STEPS.forEach((_,i) => {
+    const el = document.getElementById('dpd-'+i);
+    if (!el) return;
+    el.classList.toggle('done', i < debriefStep);
+    el.classList.toggle('active', i === debriefStep);
+  });
+}
+
+function renderDebriefStep(n) {
+  debriefStep = n;
+  updateDebriefProgress();
+  const step = DEBRIEF_STEPS[n];
+  const isLast = n === DEBRIEF_STEPS.length - 1;
+  const container = document.getElementById('debrief-step-container');
+  const td = todayKey();
+  const morningEntry = db.days[td];
+
+  let topOneText = '';
+  if (step.id === 'topOneDone' && morningEntry?.topOne) {
+    topOneText = `<div style="background:var(--cream);border:0.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:14px;color:var(--ink)"><span style="font-size:11px;color:var(--ink-muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:3px">Your #1 this morning</span>${morningEntry.topOne}</div>`;
+  }
+
+  let fieldsHTML = topOneText + step.fields.map(f => renderDebriefField(f)).join('');
+
+  container.innerHTML = `
+    <div class="step-card">
+      <div class="step-eyebrow">${step.eyebrow}</div>
+      <div class="step-question">${step.question}</div>
+      <div class="step-hint">${step.hint}</div>
+      ${fieldsHTML}
+      <div class="step-nav">
+        ${n > 0 ? `<button class="btn-back" onclick="goDebriefStep(${n-1})">Back</button>` : ''}
+        <button class="${isLast ? 'btn-next green-btn' : 'btn-next'}" onclick="${isLast ? 'finishDebrief()' : `goDebriefStep(${n+1})`}">
+          ${isLast ? '🌙 Close out the day' : 'Next'}
+        </button>
+      </div>
+    </div>`;
+
+  // Restore saved values
+  step.fields.forEach(f => {
+    if (f.id && debriefData[f.id] !== undefined) {
+      const el = document.getElementById('dfi-'+f.id);
+      if (el) el.value = debriefData[f.id];
+      // Restore yesno
+      if (f.type === 'yesno') {
+        const saved = debriefData[f.id];
+        document.querySelectorAll(`.yn-btn[data-field="${f.id}"]`).forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.val === saved);
+        });
+      }
+    }
+  });
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function renderDebriefField(f) {
+  if (f.type === 'voice') return `
+    <div${f.label ? '' : ''}>
+      ${f.label ? `<div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:6px;margin-top:12px">${f.label}</div>` : ''}
+      <div class="voice-field" id="dvf-${f.id}">
+        <textarea class="answer-box" id="dfi-${f.id}" placeholder="${f.placeholder}"></textarea>
+        <div class="voice-bar">
+          <button class="voice-btn" id="dvbtn-${f.id}" onclick="toggleVoiceDebrief('${f.id}')">
+            <span class="mic-icon">🎙</span> Hold to dictate
+          </button>
+          <span class="voice-status" id="dvstatus-${f.id}">Click and speak — releases when done</span>
+        </div>
+      </div>
+    </div>`;
+
+  if (f.type === 'number') return `
+    <div style="margin-top:16px">
+      <div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:8px">${f.label}</div>
+      <input class="num-input" id="dfi-${f.id}" type="number" min="0" max="20" placeholder="${f.placeholder}">
+    </div>`;
+
+  if (f.type === 'yesno') {
+    const labels = f.labels || ['Yes', 'No'];
+    return `
+    <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="yn-btn" data-field="${f.id}" data-val="yes" onclick="setYesNo('${f.id}','yes',this)">${labels[0]}</button>
+      <button class="yn-btn" data-field="${f.id}" data-val="no" onclick="setYesNo('${f.id}','no',this)">${labels[1]}</button>
+    </div>`;
+  }
+
+  return '';
+}
+
+function setYesNo(field, val, btn) {
+  debriefData[field] = val;
+  document.querySelectorAll(`.yn-btn[data-field="${field}"]`).forEach(b => b.classList.toggle('selected', b === btn));
+  // Show/hide topOneWhy based on yes/no
+  if (field === 'topOneDone') {
+    const whyEl = document.getElementById('dvf-topOneWhy');
+    if (whyEl) whyEl.closest('div') && (whyEl.parentElement.style.display = val === 'no' ? 'block' : 'none');
+  }
+}
+
+function goDebriefStep(n) {
+  saveDebriefStep();
+  renderDebriefStep(n);
+}
+
+function saveDebriefStep() {
+  const step = DEBRIEF_STEPS[debriefStep];
+  step.fields.forEach(f => {
+    if (f.id) {
+      if (f.type === 'voice' || f.type === 'number') {
+        const el = document.getElementById('dfi-'+f.id);
+        if (el) debriefData[f.id] = el.value;
+      }
+      // yesno saved via setYesNo
+    }
+  });
+}
+
+function finishDebrief() {
+  saveDebriefStep();
+  const td = todayKey();
+  if (!db.debrief) db.debrief = {};
+  db.debrief[td] = { ...debriefData, _done: true, date: td };
+  saveDB();
+  showDebriefDone(db.debrief[td]);
+  renderHandoff(); // update Clem Handoff tab
+}
+
+function showDebriefDone(deb) {
+  document.getElementById('debrief-form').style.display = 'none';
+  document.getElementById('debrief-done-state').style.display = 'block';
+
+  const sub = [];
+  if (deb.topOneDone) sub.push(`#1: ${deb.topOneDone === 'yes' ? '✓ done' : '✗ not done'}`);
+  if (deb.liveInteractions) sub.push(`${deb.liveInteractions} live interactions`);
+  if (deb.personalNote === 'yes') sub.push('note sent');
+  document.getElementById('debrief-done-sub').textContent = sub.join(' · ') || 'Day logged.';
+
+  const ds = document.getElementById('debrief-done-summaries');
+  const rows = [
+    ['Proud of', deb.proud],
+    ['Top 3 tomorrow', deb.topThree],
+    ['For Clem', deb.forClem],
+  ].filter(([,v]) => v);
+  ds.innerHTML = rows.map(([label, val]) => `
+    <div class="summary-card">
+      <div class="summary-label">${label}</div>
+      <div class="summary-text">${val}</div>
+    </div>`).join('');
+}
+
+function editDebrief() {
+  const td = todayKey();
+  const saved = db.debrief?.[td];
+  if (saved) debriefData = { ...saved };
+  document.getElementById('debrief-done-state').style.display = 'none';
+  document.getElementById('debrief-form').style.display = 'block';
+  buildDebriefProgress();
+  renderDebriefStep(0);
+}
+
+// Voice for debrief (reuses same recognition instance)
+let activeDebriefVoiceId = null;
+
+function toggleVoiceDebrief(id) {
+  if (isRecording && activeDebriefVoiceId === id) {
+    stopDebriefVoice();
+  } else {
+    if (isRecording) stopVoice(); // stop main voice if active
+    startDebriefVoice(id);
+  }
+}
+
+function startDebriefVoice(id) {
+  if (!recognition) { alert('Voice input requires Chrome.'); return; }
+  activeDebriefVoiceId = id;
+  activeVoiceId = null; // not a main check-in field
+  isRecording = true;
+  const ta = document.getElementById('dfi-' + id);
+  voiceAccumulated = ta ? ta.value : '';
+  voiceInterim = '';
+  const btn = document.getElementById('dvbtn-'+id);
+  const vf = document.getElementById('dvf-'+id);
+  if (btn) { btn.classList.add('recording'); btn.innerHTML = '<span class="mic-icon">⏹</span> Recording — click to stop'; }
+  if (vf) vf.classList.add('recording');
+  const statusEl = document.getElementById('dvstatus-'+id);
+  if (statusEl) statusEl.textContent = '🔴 Listening — speak freely...';
+
+  // Override onresult to write to debrief textarea
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) voiceAccumulated += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    const ta = document.getElementById('dfi-' + id);
+    if (ta) ta.value = voiceAccumulated + interim;
+  };
+  recognition.onend = () => { if (isRecording) try { recognition.start(); } catch(err) {} };
+  try { recognition.start(); } catch(err) {}
+}
+
+function stopDebriefVoice() {
+  if (!recognition) return;
+  isRecording = false;
+  recognition.stop();
+  const id = activeDebriefVoiceId;
+  const btn = document.getElementById('dvbtn-'+id);
+  const vf = document.getElementById('dvf-'+id);
+  if (btn) { btn.classList.remove('recording'); btn.innerHTML = '<span class="mic-icon">🎙</span> Hold to dictate'; }
+  if (vf) vf.classList.remove('recording');
+  const statusEl = document.getElementById('dvstatus-'+id);
+  if (statusEl) statusEl.textContent = '✓ Done — edit above if needed';
+  activeDebriefVoiceId = null;
+  // Restore main voice onresult handler
+  initVoice();
+}
+
+function updateStreakDisplay() {
+  const s = getStreak();
+  document.getElementById('streak-display').textContent = s;
+  if (document.getElementById('m-streak')) document.getElementById('m-streak').textContent = s;
+}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+function init() {
+  loadDB();
+  document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  updateStreakDisplay();
+  buildProgressTrack();
+  initVoice();
+
+  const td = todayKey();
+  if (db.days[td]?.done) {
+    showDoneState(db.days[td]);
+  } else {
+    renderStep(0);
+  }
+
+  // Pre-render Hot/Warm counts so badges show on load
+  renderHotWarm();
+  setTimeout(restorePhotos, 100);
+}
+
+init();
+</script>
+</body>
+</html>
