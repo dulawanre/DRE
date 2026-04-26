@@ -1222,6 +1222,7 @@ const STEPS = [
     question: 'What\'s your #1 today?',
     hint: 'One thing that, if done, makes today a win. This goes at the top of the Clem handoff.',
     fields: [
+      { type: 'carryforward' },
       { type: 'short', id: 'top-one', placeholder: 'e.g. Call the Garcias and send 3 listings' }
     ]
   }
@@ -1360,6 +1361,19 @@ function renderField(f) {
         <img class="photo-preview" id="pp-${f.id}" src="">
         <button class="photo-clear-btn" id="pcl-${f.id}" onclick="event.stopPropagation();clearPhoto('${f.id}')">✕ Remove photo</button>
       </div>
+    </div>`;
+  }
+
+  if (f.type === 'carryforward') {
+    // Pull yesterday's top 3 from debrief
+    const yd = new Date(); yd.setDate(yd.getDate()-1);
+    const ydKey = yd.toISOString().slice(0,10);
+    const ydDeb = db.debrief?.[ydKey];
+    if (!ydDeb?.topThree) return '';
+    return `
+    <div style="background:var(--warm-bg);border:0.5px solid var(--warm-border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--warm);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">↩ Carried from yesterday</div>
+      <div style="font-size:14px;color:var(--ink);line-height:1.7;white-space:pre-wrap;">${ydDeb.topThree}</div>
     </div>`;
   }
 
@@ -2115,32 +2129,47 @@ function renderHandoff() {
   if (emptyBlock) emptyBlock.style.display = 'none';
 
   const deb = db.debrief?.[td] || {};
+  const DAILY_HABITS = [
+    ['dh1', 'Gratitudes & affirmations'],
+    ['dh2', 'Personal note'],
+    ['dh3', 'Hot List reviewed & touched'],
+    ['dh4', 'Warm List reviewed & touched'],
+  ];
+  const completedHabits = deb.dailyHabits || [];
+  const habitsText = DAILY_HABITS.map(([id, label]) =>
+    (completedHabits.includes(id) ? '✓ ' : '✗ ') + label
+  ).join('\n');
+
+  const weeklyLines = [];
+  if (deb.custServiceCalls === 'yes') weeklyLines.push('✓ Customer service calls');
+  if (deb.realEstateReviews === 'yes') weeklyLines.push('✓ Real estate review');
+  if (deb.dbUpdated === 'yes') weeklyLines.push('✓ Database & Hot Sheet updated');
+  if (deb.liveInteractionsWeekly) weeklyLines.push(`Live interactions this week: ${deb.liveInteractionsWeekly}/50`);
 
   // Morning column rows
   const morningRows = [
     ['#1 For Today', entry.topOne],
-    ['Pomodoros', entry.pomos],
+    ['Pomodoros Planned', entry.pomos],
     ['Appointments', entry.appts],
     ['Contract Deadlines', entry.contracts],
     ['Hot List', entry.hotFocus],
     ['Warm List', entry.warmFocus],
     ['Contacts Planned', entry.contacts?.length ? entry.contacts.map(c=>`· ${c.name}${c.action?' — '+c.action:''}`).join('\n') : ''],
-    ['Ninja Habits', `${entry.habits?.length||0}/8`],
   ].filter(([,v]) => v);
 
   // Evening column rows
   const eveningRows = [
+    ['#1 Done?', deb.topOneDone ? (deb.topOneDone === 'yes' ? '✓ Yes' : '✗ No' + (deb.topOneWhy ? '\n' + deb.topOneWhy : '')) : ''],
+    ['Pomodoros', deb.pomosActual ? `${entry.pomos||'?'} planned / ${deb.pomosActual} completed` : ''],
     ['Proud of today', deb.proud],
-    ['#1 Done?', deb.topOneDone ? (deb.topOneDone === 'yes' ? '✓ Yes' : '✗ No' + (deb.topOneWhy ? ' — ' + deb.topOneWhy : '')) : ''],
     ["Didn't happen", deb.didntHappen],
-    ['Hot List touches', deb.hotTouches],
+    ['Hot touches', deb.hotTouches],
     ['Warm signals', deb.warmSignals],
-    ['Live interactions', deb.liveInteractions ? `${deb.liveInteractions} today` : ''],
-    ['Personal note', deb.personalNote ? (deb.personalNote === 'yes' ? '✓ Sent' : '✗ Not sent') : ''],
-    ['Pomodoros actual', deb.pomosActual ? `${deb.pomosActual} of ${entry.pomos||'?'} planned` : ''],
+    ['Daily habits', completedHabits.length || deb._done ? habitsText : ''],
+    weeklyLines.length ? ['Weekly habits', weeklyLines.join('\n')] : null,
     ['Top 3 tomorrow', deb.topThree],
     ['For Clem', deb.forClem],
-  ].filter(([,v]) => v);
+  ].filter(r => r && r[1]);
 
   function renderCol(rows, emptyMsg) {
     if (!rows.length) return `<div class="hc-section"><div class="hc-val empty">${emptyMsg}</div></div>`;
@@ -2175,35 +2204,71 @@ function renderHandoff() {
 }
 
 function buildHandoffEmail(e, deb, td) {
-  let txt = `DRE Daily Handoff — ${fmtDate(td)}\n\n`;
-  txt += `#1 FOR TODAY: ${e.topOne||'—'}\n`;
-  txt += `POMODOROS: ${e.pomos||'—'} planned`;
-  if (deb.pomosActual) txt += ` / ${deb.pomosActual} actual`;
-  txt += '\n\n';
-  if (e.appts) txt += `APPOINTMENTS:\n${e.appts}\n\n`;
-  if (e.contracts) txt += `CONTRACT DEADLINES:\n${e.contracts}\n\n`;
-  txt += `HOT LIST:\n${e.hotFocus||'—'}\n\n`;
-  txt += `WARM LIST:\n${e.warmFocus||'—'}\n\n`;
-  if (e.contacts?.length) txt += `CONTACTS PLANNED:\n${e.contacts.map(c=>`· ${c.name}${c.action?' — '+c.action:''}`).join('\n')}\n\n`;
-  txt += `NINJA HABITS: ${e.habits?.length||0}/8\n\n`;
+  const DAILY_HABITS = [
+    ['dh1', 'Gratitudes & affirmations'],
+    ['dh2', 'Personal note'],
+    ['dh3', 'Hot List reviewed & touched'],
+    ['dh4', 'Warm List reviewed & touched'],
+  ];
+  const completedHabits = deb.dailyHabits || [];
+  const doneHabits = DAILY_HABITS.filter(([id]) => completedHabits.includes(id));
+  const missedHabits = DAILY_HABITS.filter(([id]) => !completedHabits.includes(id));
+
+  let txt = `DRE DAILY HANDOFF\n${fmtDate(td)}\n${'━'.repeat(28)}\n\n`;
+
+  // ── MORNING PLAN ──
+  txt += `☀ MORNING PLAN\n${'─'.repeat(20)}\n\n`;
+  txt += `#1 FOR TODAY\n${e.topOne || '—'}\n\n`;
+  txt += `POMODOROS PLANNED: ${e.pomos || '—'}\n\n`;
+  if (e.appts) txt += `APPOINTMENTS\n${e.appts}\n\n`;
+  if (e.contracts) txt += `CONTRACT DEADLINES\n${e.contracts}\n\n`;
+  txt += `HOT LIST\n${e.hotFocus || '—'}\n\n`;
+  txt += `WARM LIST\n${e.warmFocus || '—'}\n\n`;
+  if (e.warmToHot) txt += `WARM → HOT\n${e.warmToHot}\n\n`;
+  if (e.contacts?.length) {
+    txt += `CONTACTS PLANNED\n`;
+    txt += e.contacts.map(c => `· ${c.name}${c.action ? ' — ' + c.action : ''}`).join('\n');
+    txt += '\n\n';
+  }
 
   if (Object.keys(deb).length) {
-    txt += `${'─'.repeat(40)}\nEVENING DEBRIEF\n${'─'.repeat(40)}\n\n`;
-    if (deb.proud) txt += `PROUD OF TODAY:\n${deb.proud}\n\n`;
+    // ── EVENING DEBRIEF ──
+    txt += `${'━'.repeat(28)}\n\n`;
+    txt += `🌙 EVENING DEBRIEF\n${'─'.repeat(20)}\n\n`;
+
     if (deb.topOneDone) {
-      txt += `#1 DONE? ${deb.topOneDone === 'yes' ? 'Yes' : 'No'}`;
-      if (deb.topOneWhy) txt += ` — ${deb.topOneWhy}`;
+      txt += `#1 DONE? ${deb.topOneDone === 'yes' ? '✓ Yes' : '✗ No'}`;
+      if (deb.topOneWhy) txt += `\n${deb.topOneWhy}`;
       txt += '\n\n';
     }
-    if (deb.didntHappen) txt += `DIDN'T HAPPEN:\n${deb.didntHappen}\n\n`;
-    if (deb.hotTouches) txt += `HOT TOUCHES:\n${deb.hotTouches}\n\n`;
-    if (deb.warmSignals) txt += `WARM SIGNALS:\n${deb.warmSignals}\n\n`;
-    if (deb.liveInteractions) txt += `LIVE INTERACTIONS TODAY: ${deb.liveInteractions}\n\n`;
-    if (deb.topThree) txt += `TOP 3 TOMORROW:\n${deb.topThree}\n\n`;
-    if (deb.forClem) txt += `FOR CLEM:\n${deb.forClem}\n\n`;
+    txt += `POMODOROS: ${e.pomos || '—'} planned`;
+    if (deb.pomosActual) txt += ` / ${deb.pomosActual} completed`;
+    txt += '\n\n';
+    if (deb.proud) txt += `PROUD OF TODAY\n${deb.proud}\n\n`;
+    if (deb.didntHappen) txt += `DIDN'T HAPPEN\n${deb.didntHappen}\n\n`;
+    if (deb.hotTouches) txt += `HOT TOUCHES\n${deb.hotTouches}\n\n`;
+    if (deb.warmSignals) txt += `WARM SIGNALS\n${deb.warmSignals}\n\n`;
+
+    // Daily habits
+    txt += `DAILY HABITS\n`;
+    if (doneHabits.length) txt += doneHabits.map(([,l]) => `✓ ${l}`).join('\n') + '\n';
+    if (missedHabits.length) txt += missedHabits.map(([,l]) => `✗ ${l}`).join('\n') + '\n';
+    txt += '\n';
+
+    // Weekly habits — only if any completed today
+    const weeklyDone = [];
+    if (deb.custServiceCalls === 'yes') weeklyDone.push('✓ Customer service calls');
+    if (deb.realEstateReviews === 'yes') weeklyDone.push('✓ Real estate review');
+    if (deb.dbUpdated === 'yes') weeklyDone.push('✓ Database & Hot Sheet updated');
+    if (weeklyDone.length) txt += `WEEKLY HABITS COMPLETED TODAY\n${weeklyDone.join('\n')}\n\n`;
+    if (deb.liveInteractionsWeekly) txt += `LIVE INTERACTIONS THIS WEEK: ${deb.liveInteractionsWeekly}/50\n\n`;
+
+    if (deb.topThree) txt += `TOP 3 TOMORROW\n${deb.topThree}\n\n`;
+    if (deb.forClem) txt += `FOR CLEM\n${deb.forClem}\n\n`;
   } else {
-    txt += '[Debrief to be added at end of day]';
+    txt += `\n[Evening debrief to be added at end of day]`;
   }
+
   return txt.trim();
 }
 
@@ -2289,6 +2354,25 @@ const DEBRIEF_STEPS = [
     question: 'What carries to tomorrow? Top 3 only.',
     hint: 'Not the easiest three — the most important three.',
     fields: [{ type: 'voice', id: 'topThree', placeholder: 'e.g. 1. Call Martinez to confirm timeline. 2. Real estate review with the Hendersons. 3. Send Warm market update.' }]
+  },
+  {
+    id: 'dailyHabits',
+    eyebrow: 'Ninja Nine — Daily Habits',
+    question: 'Which daily habits got done today?',
+    hint: 'Check each one you completed. Anything unchecked gets flagged in the Clem handoff.',
+    fields: [{ type: 'debriefHabits' }]
+  },
+  {
+    id: 'weeklyHabits',
+    eyebrow: 'Ninja Nine — Weekly Habits',
+    question: 'Any weekly habits completed today?',
+    hint: 'Only note what actually happened today. Running totals tracked here each week.',
+    fields: [
+      { type: 'yesno', id: 'custServiceCalls', labels: ['✓ Customer service calls done', 'Not today'] },
+      { type: 'yesno', id: 'realEstateReviews', labels: ['✓ Real estate review done', 'Not today'] },
+      { type: 'number', id: 'liveInteractionsWeekly', label: 'Live interactions this week so far (running total)', placeholder: '0' },
+      { type: 'yesno', id: 'dbUpdated', labels: ['✓ Database & Hot Sheet updated', 'Not today'] },
+    ]
   },
   {
     id: 'forClem',
@@ -2396,7 +2480,7 @@ function renderDebriefField(f) {
   if (f.type === 'number') return `
     <div style="margin-top:16px">
       <div style="font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:8px">${f.label}</div>
-      <input class="num-input" id="dfi-${f.id}" type="number" min="0" max="20" placeholder="${f.placeholder}">
+      <input class="num-input" id="dfi-${f.id}" type="number" min="0" max="200" placeholder="${f.placeholder}">
     </div>`;
 
   if (f.type === 'yesno') {
@@ -2408,13 +2492,47 @@ function renderDebriefField(f) {
     </div>`;
   }
 
+  if (f.type === 'debriefHabits') {
+    const habits = [
+      ['dh1', 'Gratitudes & affirmations'],
+      ['dh2', 'Personal note written'],
+      ['dh3', 'Hot List reviewed & touched'],
+      ['dh4', 'Warm List reviewed & touched'],
+    ];
+    const saved = debriefData.dailyHabits || [];
+    return `<div class="habit-list" style="margin-bottom:1rem;">
+      ${habits.map(([id, label]) => {
+        const checked = saved.includes(id);
+        return `<div class="habit-item${checked?' checked':''}" onclick="toggleDebriefHabit('${id}',this)" id="dhi-${id}">
+          <div class="habit-check" id="dhcheck-${id}">${checked?'✓':''}</div>
+          <div class="habit-label">${label}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
   return '';
+}
+
+function toggleDebriefHabit(id, el) {
+  if (!debriefData.dailyHabits) debriefData.dailyHabits = [];
+  const idx = debriefData.dailyHabits.indexOf(id);
+  if (idx >= 0) {
+    debriefData.dailyHabits.splice(idx, 1);
+    el.classList.remove('checked');
+    const check = document.getElementById('dhcheck-'+id);
+    if (check) check.textContent = '';
+  } else {
+    debriefData.dailyHabits.push(id);
+    el.classList.add('checked');
+    const check = document.getElementById('dhcheck-'+id);
+    if (check) check.textContent = '✓';
+  }
 }
 
 function setYesNo(field, val, btn) {
   debriefData[field] = val;
   document.querySelectorAll(`.yn-btn[data-field="${field}"]`).forEach(b => b.classList.toggle('selected', b === btn));
-  // Show/hide topOneWhy based on yes/no
   if (field === 'topOneDone') {
     const whyEl = document.getElementById('dvf-topOneWhy');
     if (whyEl) whyEl.closest('div') && (whyEl.parentElement.style.display = val === 'no' ? 'block' : 'none');
